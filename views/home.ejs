@@ -1,0 +1,248 @@
+<%- include("partials/head") %>
+<%- include("partials/navbar") %>
+
+<main id="main-content">
+  <!-- HERO -->
+  <section class="home-hero has-photo">
+    <div class="container">
+      <div class="row">
+        <div class="col-lg-8 col-xl-7">
+          <div class="home-hero-content" data-aos="fade-up">
+            <p class="eyebrow">IRON CULTURE SUPPLEMENTS</p>
+
+            <h1 class="hero-title">
+              FUEL YOUR
+              <span>NEXT LEVEL.</span>
+            </h1>
+
+            <p class="hero-description">
+              Better nutrition. More energy. Greater results.
+            </p>
+
+            <p class="hero-supporting">
+              Your training. Your goals. Your next level.
+            </p>
+
+            <div class="hero-actions d-flex flex-column flex-sm-row gap-3">
+              <a href="/shop" class="btn btn-brand">
+                Shop Supplements
+                <span aria-hidden="true">→</span>
+              </a>
+
+              <a href="#deals" class="btn btn-outline-brand">
+                Explore Deals
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-bottom-label" aria-hidden="true">
+      IRON CULTURE / BUILT AROUND YOUR GOALS
+    </div>
+  </section>
+
+  <!-- CATEGORIES -->
+  <section
+    id="categories"
+    class="category-section section-space"
+    aria-labelledby="categories-heading"
+  >
+    <div class="container">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">FIND YOUR FOCUS</p>
+          <h2 id="categories-heading" class="section-title">
+            Shop by Category
+          </h2>
+        </div>
+      </div>
+
+      <div class="row g-3">
+        <% categories.forEach((category) => { %>
+          <div class="col-6 col-md-4 col-xl-3">
+           <a
+            href="/shop/<%= category.slug %>"
+            class="category-card-link"
+            >
+            <article class="category-card">
+                <span class="category-number" aria-hidden="true">
+                <%= category.number %>
+                </span>
+
+                <h3><%= category.name %></h3>
+                <p><%= category.description %></p>
+            </article>
+            </a>
+          </div>
+        <% }); %>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRODUCT SECTION -->
+  <section
+    id="catalogue"
+    class="section-space catalogue-section"
+    aria-labelledby="products-heading"
+  >
+    <div class="container">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">EXPLORE THE RANGE</p>
+          <h2 id="products-heading" class="section-title">
+            Featured Products
+         </h2>
+        </div>
+      </div>
+
+      <% if (featuredProducts.length === 0) { %>
+        <div class="catalogue-empty">
+          <div class="empty-mark" aria-hidden="true">IC</div>
+
+          <div>
+            <h3>The next level is taking shape.</h3>
+            <p>
+              Our product range is being prepared.
+              Check back for available supplements and training essentials.
+            </p>
+          </div>
+        </div>
+      <% } else { %>
+        <div class="row g-3">
+            <% featuredProducts.forEach((product) => { %>
+            <div class="col-6 col-lg-3">
+                <%- include("partials/product-card", { product }) %>
+            </div>
+            <% }); %>
+        </div>
+        <% } %>
+    </div>
+  </section>
+
+  <!-- STACK PROMOTION -->
+  <section class="stack-section" aria-labelledby="stack-heading">
+    <div class="container">
+      <div class="stack-banner">
+        <div class="row gy-4 align-items-center">
+          <div class="col-lg-7" data-aos="fade-up">
+            <p class="eyebrow">START WITH YOUR GOAL</p>
+
+            <h2 id="stack-heading" class="stack-title">
+              BUILD YOUR
+              <span>PERFECT STACK.</span>
+            </h2>
+
+            <p class="stack-description">
+              Explore product combinations around the way you train.
+              Goal-based recommendations are coming soon.
+            </p>
+
+            <a href="#catalogue" class="btn btn-brand">
+              Explore the Catalogue
+              <span aria-hidden="true">→</span>
+            </a>
+          </div>
+
+          <div class="col-lg-5">
+            <div class="stack-goals" aria-label="Planned training goals">
+              <span>Muscle Gain</span>
+              <span>Strength</span>
+              <span>Performance</span>
+              <span>Recovery</span>
+              <span>Fat Loss</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DEALS -->
+  <section
+    id="deals"
+    class="section-space"
+    aria-labelledby="deals-heading"
+  >
+    <div class="container">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">WATCH THIS SPACE</p>
+          <h2 id="deals-heading" class="section-title">
+            Latest Deals
+          </h2>
+        </div>
+      </div>
+
+      <div class="notice-panel">
+        <p class="mb-0">
+          There are no active promotions to display.
+          Available offers will appear here.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- BRANDS -->
+  <section
+    id="brands"
+    class="brands-section"
+    aria-labelledby="brands-heading"
+  >
+    <div class="container">
+      <div class="row gy-3 align-items-center">
+        <div class="col-md-4">
+          <p class="eyebrow">THE LINEUP</p>
+          <h2 id="brands-heading" class="section-title mb-0">
+            Our Brands
+          </h2>
+        </div>
+
+        <div class="col-md-8">
+        <% if (brands.length === 0) { %>
+            <p class="text-muted-custom mb-0">
+                Confirmed brands will appear here when the catalogue launches.
+            </p>
+            <% } else { %>
+            <div class="d-flex flex-wrap gap-3">
+                <% brands.forEach((brand) => { %>
+                <a
+                    href="/shop?brand=<%= encodeURIComponent(brand.slug) %>"
+                    class="btn btn-outline-brand"
+                >
+                    <%= brand.name %>
+                </a>
+                <% }); %>
+            </div>
+            <% } %>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- NEWSLETTER: NO DATA COLLECTION UNTIL BACKEND EXISTS -->
+  <section class="section-space" aria-labelledby="newsletter-heading">
+    <div class="container">
+      <div class="newsletter-panel">
+        <div>
+          <p class="eyebrow">STAY IN THE LOOP</p>
+
+          <h2 id="newsletter-heading" class="section-title">
+            Stay Close to the Culture
+          </h2>
+
+          <p class="text-muted-custom mb-0">
+            Product launches, offers and updates.
+            Newsletter signup is coming soon.
+          </p>
+        </div>
+
+        <span class="availability-label">Launching Soon</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<%- include("partials/footer") %>
+<%- include("partials/scripts") %>

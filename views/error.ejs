@@ -1,0 +1,19 @@
+<%- include("partials/head") %>
+<%- include("partials/navbar") %>
+
+<main id="main-content" class="section-space">
+  <div class="container text-center">
+    <p class="eyebrow">ERROR <%= statusCode %></p>
+
+    <h1 class="section-title">
+      <%= statusCode === 404 ? "Page Not Found" : "Request Failed" %>
+    </h1>
+
+    <p class="text-muted-custom"><%= message %></p>
+
+    <a href="/" class="btn btn-brand mt-3">Back to Home</a>
+  </div>
+</main>
+
+<%- include("partials/footer") %>
+<%- include("partials/scripts") %>

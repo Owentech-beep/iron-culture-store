@@ -1,0 +1,62 @@
+<article class="product-card">
+  <div class="product-image-wrap">
+    <% if (product.imageUrl) { %>
+      <img
+        src="<%= product.imageUrl %>"
+        alt="<%= product.name %>"
+        loading="lazy"
+        width="400"
+        height="400"
+      >
+    <% } else { %>
+      <span class="product-image-placeholder">Image coming soon</span>
+    <% } %>
+  </div>
+
+  <div class="product-card-body">
+    <% if (product.isDemo) { %>
+    <span class="demo-label">Demo — not for sale</span>
+    <% } %>
+    <p class="product-brand"><%= product.brandName %></p>
+
+    <h2 class="product-name">
+        <a href="/product/<%= product.slug %>">
+            <%= product.name %>
+        </a>
+    </h2>
+
+    <p class="product-rating">
+      <% if (product.reviewCount > 0) { %>
+        <%= Number(product.rating).toFixed(1) %>/5
+        <span>(<%= product.reviewCount %> reviews)</span>
+      <% } else { %>
+        <span>No reviews yet</span>
+      <% } %>
+    </p>
+
+    <div class="product-price">
+      <strong>
+        <%= formatMoney(product.salePrice ?? product.price) %>
+      </strong>
+
+      <% if (
+        product.salePrice !== null &&
+        product.salePrice !== undefined &&
+        product.salePrice < product.price
+      ) { %>
+        <del><%= formatMoney(product.price) %></del>
+      <% } %>
+    </div>
+
+    <p class="product-stock">
+      <%= product.stock > 0 ? "In stock" : "Out of stock" %>
+    </p>
+
+      <a
+        href="/product/<%= product.slug %>"
+        class="btn btn-outline-brand product-view-button"
+        >
+        View Product
+     </a>
+  </div>
+</article>

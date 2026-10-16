@@ -1,0 +1,273 @@
+<%- include("partials/head") %>
+<%- include("partials/navbar") %>
+
+<main id="main-content" class="section-space">
+  <div class="container">
+    <nav class="shop-breadcrumb" aria-label="Breadcrumb">
+      <a href="/">Home</a>
+      <span aria-hidden="true">/</span>
+      <a href="/shop">Shop</a>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page"><%= product.name %></span>
+    </nav>
+
+    <div class="row g-4 g-xl-5">
+      <!-- IMAGE GALLERY -->
+      <div class="col-lg-6">
+        <div class="product-gallery">
+          <div class="product-main-image">
+            <% if (images.length > 0) { %>
+              <img
+                id="mainProductImage"
+                src="<%= images[0] %>"
+                alt="<%= product.name %> — image 1"
+                width="700"
+                height="700"
+              >
+            <% } else { %>
+              <p class="text-muted-custom mb-0">
+                Product image coming soon
+              </p>
+            <% } %>
+          </div>
+
+          <% if (images.length > 1) { %>
+            <div class="product-thumbnails" aria-label="Product images">
+              <% images.forEach((image, index) => { %>
+                <button
+                  type="button"
+                  class="product-thumbnail"
+                  data-product-image="<%= image %>"
+                  data-product-alt="<%= product.name %> — image <%= index + 1 %>"
+                  aria-label="Show product image <%= index + 1 %>"
+                  aria-pressed="<%= index === 0 ? 'true' : 'false' %>"
+                >
+                  <img src="<%= image %>" alt="" width="80" height="80">
+                </button>
+              <% }); %>
+            </div>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- PRODUCT INFORMATION -->
+      <div class="col-lg-6">
+        <div class="product-summary">
+            <% if (product.isDemo) { %>
+            <div class="demo-notice">
+                Development sample. Prices, options and stock are fictional test data.
+                This product is not for sale.
+            </div>
+            <% } %>
+          <p class="eyebrow"><%= product.brandName %></p>
+
+          <h1 class="product-detail-title"><%= product.name %></h1>
+
+          <p class="product-rating">
+            <% if (product.reviewCount > 0) { %>
+              <%= Number(product.rating).toFixed(1) %>/5
+              <a href="#product-reviews">
+                (<%= product.reviewCount %> reviews)
+              </a>
+            <% } else { %>
+              <span>No reviews yet</span>
+            <% } %>
+          </p>
+
+          <div class="product-detail-price">
+            <strong>
+              <%= formatMoney(product.salePrice ?? product.price) %>
+            </strong>
+
+            <% if (
+              product.salePrice != null &&
+              product.salePrice < product.price
+            ) { %>
+              <del><%= formatMoney(product.price) %></del>
+            <% } %>
+          </div>
+
+          <p class="product-availability">
+            <%= product.stock > 0 ? "In stock" : "Out of stock" %>
+          </p>
+
+          <p class="product-intro">
+            <%= product.shortDescription ||
+              "See the product information below for details." %>
+          </p>
+
+          <% if (flavours.length > 0) { %>
+            <div class="mb-4">
+              <label for="productFlavour" class="form-label">
+                Flavour
+              </label>
+
+              <select
+            id="productFlavour"
+            class="form-select product-select"
+            >
+            <option value="">Choose a flavour</option>
+
+            <% product.variants.forEach((variant) => { %>
+                <option
+                value="<%= variant.id %>"
+                data-stock="<%= variant.stock %>"
+                >
+                <%= variant.flavour %>
+                <%= variant.stock > 0 ? "" : " — Out of stock" %>
+                </option>
+            <% }); %>
+            </select>
+
+            <p
+            id="variantStock"
+            class="text-muted-custom mt-2 mb-0"
+            aria-live="polite"
+            ></p>
+            </div>
+          <% } %>
+
+          <div class="purchase-panel">
+            <p id="purchaseAvailability">
+              Online ordering is not available yet.
+            </p>
+
+            <div class="d-flex flex-column flex-sm-row gap-3">
+              <button
+                type="button"
+                class="btn btn-brand flex-fill"
+                disabled
+                aria-describedby="purchaseAvailability"
+              >
+                Add to Cart
+              </button>
+
+              <button
+                type="button"
+                class="btn btn-outline-brand flex-fill"
+                disabled
+                aria-describedby="purchaseAvailability"
+              >
+                Buy Now
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRODUCT INFORMATION SECTIONS -->
+    <div class="product-information">
+      <nav class="product-section-links" aria-label="Product information">
+        <a href="#product-description">Description</a>
+        <a href="#product-nutrition">Nutrition Facts</a>
+        <a href="#product-ingredients">Ingredients</a>
+        <a href="#product-reviews">Reviews</a>
+      </nav>
+
+      <section id="product-description" class="product-info-section">
+        <h2>Description</h2>
+        <p class="preserve-lines"><%= product.description ||
+          "Product description has not been supplied yet." %></p>
+      </section>
+
+      <section id="product-nutrition" class="product-info-section">
+        <h2>Nutrition Facts</h2>
+
+        <% if (nutrition.length > 0) { %>
+          <% if (product.servingSize) { %>
+            <p>Serving size: <%= product.servingSize %></p>
+          <% } %>
+
+          <div class="table-responsive">
+            <table class="table nutrition-table">
+              <caption>
+                Nutrition information supplied for this product.
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Nutrient</th>
+                  <th scope="col">
+                    <%= product.nutritionBasis || "Amount as supplied" %>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <% nutrition.forEach((row) => { %>
+                  <tr>
+                    <th scope="row"><%= row.nutrient %></th>
+                    <td><%= row.amount %></td>
+                  </tr>
+                <% }); %>
+              </tbody>
+            </table>
+          </div>
+        <% } else { %>
+          <p>Nutrition information has not been supplied yet.</p>
+        <% } %>
+      </section>
+
+      <section id="product-ingredients" class="product-info-section">
+        <h2>Ingredients</h2>
+        <p class="preserve-lines"><%= product.ingredients ||
+          "Ingredients have not been supplied yet." %></p>
+
+        <% if (product.allergens) { %>
+          <h3 class="product-subheading">Allergen Information</h3>
+          <p class="preserve-lines"><%= product.allergens %></p>
+        <% } %>
+      </section>
+
+      <section id="product-reviews" class="product-info-section">
+        <h2>Customer Reviews</h2>
+
+        <% if (reviews.length === 0) { %>
+          <p>No customer reviews to display.</p>
+        <% } else { %>
+          <div class="review-list">
+            <% reviews.forEach((review) => { %>
+              <article class="review-card">
+                <div class="d-flex flex-wrap justify-content-between gap-2">
+                  <h3><%= review.authorName %></h3>
+                  <span class="product-rating">
+                    <%= review.rating %>/5
+                  </span>
+                </div>
+
+                <p class="preserve-lines mb-0"><%= review.body %></p>
+              </article>
+            <% }); %>
+          </div>
+        <% } %>
+
+        <p class="review-availability">
+          Review submissions will be available after customer accounts launch.
+        </p>
+      </section>
+    </div>
+
+    <% if (relatedProducts.length > 0) { %>
+      <section class="mt-5" aria-labelledby="related-heading">
+        <p class="eyebrow">EXPLORE THE CATEGORY</p>
+        <h2 id="related-heading" class="section-title">
+          You May Also Like
+        </h2>
+
+        <div class="row g-3 mt-2">
+          <% relatedProducts.forEach((relatedProduct) => { %>
+            <div class="col-6 col-lg-3">
+              <%- include("partials/product-card", {
+                product: relatedProduct
+              }) %>
+            </div>
+          <% }); %>
+        </div>
+      </section>
+    <% } %>
+  </div>
+</main>
+
+<script src="/js/product.js" defer></script>
+
+<%- include("partials/footer") %>
+<%- include("partials/scripts") %>

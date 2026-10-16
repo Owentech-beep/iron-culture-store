@@ -1,0 +1,86 @@
+<header class="site-header sticky-top">
+  <nav
+    class="navbar navbar-expand-lg navbar-dark"
+    aria-label="Main navigation"
+  >
+    <div class="container">
+      <a class="navbar-brand brand" href="/">
+        <span class="brand-name">IRON CULTURE</span>
+        <span class="brand-subtitle">SUPPLEMENTS</span>
+      </a>
+
+      <button
+        class="navbar-toggler"
+        type="button"
+        data-bs-toggle="collapse"
+        data-bs-target="#mainNavbar"
+        aria-controls="mainNavbar"
+        aria-expanded="false"
+        aria-label="Toggle navigation"
+      >
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse" id="mainNavbar">
+        <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
+          <li class="nav-item">
+            <a
+              class="nav-link <%= activePage === 'home' ? 'active' : '' %>"
+              href="/"
+              <% if (activePage === 'home') { %>aria-current="page"<% } %>
+            >
+              Home
+            </a>
+          </li>
+
+          <li class="nav-item">
+            <a
+            class="nav-link <%= activePage === 'shop' ? 'active' : '' %>"
+            href="/shop"
+            <% if (activePage === 'shop') { %>aria-current="page"<% } %>
+            >
+            Shop
+            </a>
+          </li>
+
+          <li class="nav-item">
+            <a class="nav-link" href="/#categories">Categories</a>
+          </li>
+
+          <li class="nav-item">
+            <a class="nav-link" href="/#brands">Brands</a>
+          </li>
+
+          <li class="nav-item">
+            <a class="nav-link" href="/#deals">Deals</a>
+          </li>
+
+          <li class="nav-item">
+            <span class="nav-link disabled" aria-disabled="true">
+              Track Order
+            </span>
+          </li>
+
+          <li class="nav-item">
+            <a
+                class="nav-link <%= activePage === 'account' ? 'active' : '' %>"
+                href="<%= typeof currentUser !== 'undefined' && currentUser
+                ? '/account'
+                : '/login' %>"
+            >
+                <%= typeof currentUser !== 'undefined' && currentUser
+                ? 'My Account'
+                : 'Sign In' %>
+            </a>
+            </li>
+
+          <li class="nav-item">
+            <span class="nav-link disabled" aria-disabled="true">
+              Cart
+            </span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+</header>

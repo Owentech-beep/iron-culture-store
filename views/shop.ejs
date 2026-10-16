@@ -1,0 +1,243 @@
+<%- include("partials/head") %>
+<%- include("partials/navbar") %>
+
+<main id="main-content">
+  <section class="shop-heading">
+    <div class="container">
+      <nav aria-label="Breadcrumb" class="shop-breadcrumb">
+        <a href="/">Home</a>
+        <span aria-hidden="true">/</span>
+        <span>Shop</span>
+      </nav>
+
+      <p class="eyebrow">FIND YOUR NEXT LEVEL</p>
+      <h1 class="section-title mb-0"><%= heading %></h1>
+    </div>
+  </section>
+
+  <section class="section-space">
+    <div class="container">
+      <div class="row g-4">
+        <aside class="col-lg-3" aria-label="Product filters">
+          <button
+            class="btn btn-outline-brand w-100 d-lg-none mb-3"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#shopFilters"
+            aria-expanded="false"
+            aria-controls="shopFilters"
+          >
+            Search and Filters
+          </button>
+
+          <div id="shopFilters" class="collapse d-lg-block">
+            <form action="/shop" method="GET" class="shop-filter-panel">
+              <h2 class="filter-heading">Find Your Products</h2>
+
+              <div class="mb-4">
+                <label for="shopSearch" class="form-label">Search</label>
+                <input
+                  id="shopSearch"
+                  name="q"
+                  type="search"
+                  class="form-control"
+                  maxlength="100"
+                  placeholder="Search products..."
+                  value="<%= filters.q %>"
+                >
+              </div>
+
+              <div class="mb-4">
+                <label for="category" class="form-label">Category</label>
+                <select id="category" name="category" class="form-select">
+                  <option value="">All categories</option>
+                  <% categories.forEach((category) => { %>
+                    <option
+                      value="<%= category.slug %>"
+                      <%= filters.category === category.slug ? "selected" : "" %>
+                    >
+                      <%= category.name %>
+                    </option>
+                  <% }); %>
+                </select>
+              </div>
+
+              <div class="mb-4">
+                <label for="brand" class="form-label">Brand</label>
+                <select id="brand" name="brand" class="form-select">
+                  <option value="">All brands</option>
+                  <% brands.forEach((brand) => { %>
+                    <option
+                      value="<%= brand.slug %>"
+                      <%= filters.brand === brand.slug ? "selected" : "" %>
+                    >
+                      <%= brand.name %>
+                    </option>
+                  <% }); %>
+                </select>
+              </div>
+
+              <fieldset class="mb-4">
+                <legend class="form-label">Price Range (R)</legend>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label for="minPrice" class="visually-hidden">
+                      Minimum price
+                    </label>
+                    <input
+                      id="minPrice"
+                      name="minPrice"
+                      type="number"
+                      min="0"
+                      max="9999999.99"
+                      step="0.01"
+                      class="form-control"
+                      placeholder="Min"
+                      value="<%= filters.minPrice ?? '' %>"
+                    >
+                  </div>
+
+                  <div class="col-6">
+                    <label for="maxPrice" class="visually-hidden">
+                      Maximum price
+                    </label>
+                    <input
+                      id="maxPrice"
+                      name="maxPrice"
+                      type="number"
+                      min="0"
+                      max="9999999.99"
+                      step="0.01"
+                      class="form-control"
+                      placeholder="Max"
+                      value="<%= filters.maxPrice ?? '' %>"
+                    >
+                  </div>
+                </div>
+              </fieldset>
+
+              <div class="mb-4">
+                <label for="rating" class="form-label">Minimum Rating</label>
+                <select id="rating" name="rating" class="form-select">
+                  <option value="0">Any rating</option>
+                  <% [5, 4, 3, 2, 1].forEach((rating) => { %>
+                    <option
+                      value="<%= rating %>"
+                      <%= filters.rating === rating ? "selected" : "" %>
+                    >
+                      <%= rating %> stars and up
+                    </option>
+                  <% }); %>
+                </select>
+              </div>
+
+              <div class="mb-4">
+                <label for="sort" class="form-label">Sort By</label>
+                <select id="sort" name="sort" class="form-select">
+                  <% const sortOptions = [
+                    ["newest", "Newest"],
+                    ["popularity", "Popularity"],
+                    ["price_asc", "Price: low to high"],
+                    ["price_desc", "Price: high to low"],
+                    ["rating", "Highest rated"]
+                  ]; %>
+
+                  <% sortOptions.forEach(([value, label]) => { %>
+                    <option
+                      value="<%= value %>"
+                      <%= filters.sort === value ? "selected" : "" %>
+                    >
+                      <%= label %>
+                    </option>
+                  <% }); %>
+                </select>
+              </div>
+
+              <div class="form-check mb-4">
+                <input
+                  id="inStock"
+                  name="inStock"
+                  value="1"
+                  type="checkbox"
+                  class="form-check-input"
+                  <%= filters.inStock ? "checked" : "" %>
+                >
+                <label for="inStock" class="form-check-label">
+                  In-stock products only
+                </label>
+              </div>
+
+              <button type="submit" class="btn btn-brand w-100">
+                Apply Filters
+              </button>
+
+              <a href="/shop" class="filter-reset">Clear filters</a>
+            </form>
+          </div>
+        </aside>
+
+        <div class="col-lg-9">
+          <div class="shop-results-bar">
+            <p class="mb-0">
+              <strong><%= total %></strong>
+              <%= total === 1 ? "product" : "products" %> found
+            </p>
+
+            <% if (filters.q) { %>
+              <span>Search: “<%= filters.q %>”</span>
+            <% } %>
+          </div>
+
+          <% if (products.length === 0) { %>
+            <div class="shop-empty">
+              <span class="eyebrow">THE CATALOGUE</span>
+              <h2 class="section-title">No Products to Show</h2>
+              <p>
+                The catalogue may still be empty, or no products
+                match your filters.
+              </p>
+              <a href="/shop" class="btn btn-outline-brand">
+                Clear Filters
+              </a>
+            </div>
+          <% } else { %>
+            <div class="row g-3">
+              <% products.forEach((product) => { %>
+                <div class="col-6 col-xl-4">
+                  <%- include("partials/product-card", { product }) %>
+                </div>
+              <% }); %>
+            </div>
+          <% } %>
+
+          <% if (totalPages > 1) { %>
+            <nav class="shop-pagination" aria-label="Product pages">
+              <% if (page > 1) { %>
+                <a
+                  class="btn btn-outline-brand"
+                  href="<%= pageUrl(page - 1) %>"
+                >
+                  Previous
+                </a>
+              <% } %>
+
+              <span>Page <%= page %> of <%= totalPages %></span>
+
+              <% if (page < totalPages) { %>
+                <a
+                  class="btn btn-outline-brand"
+                  href="<%= pageUrl(page + 1) %>"
+                >
+                  Next
+                </a>
+              <% } %>
+            </nav>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<%- include("partials/footer") %>
+<%- include("partials/scripts") %>

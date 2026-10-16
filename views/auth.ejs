@@ -1,0 +1,125 @@
+<%- include("partials/head") %>
+<%- include("partials/navbar") %>
+
+<% const isRegister = mode === "register"; %>
+
+<main id="main-content" class="section-space">
+  <div class="container">
+    <div class="auth-panel">
+      <p class="eyebrow">IRON CULTURE ACCOUNT</p>
+
+      <h1 class="section-title">
+        <%= isRegister ? "Join the Culture" : "Welcome Back" %>
+      </h1>
+
+      <p class="text-muted-custom">
+        <%= isRegister
+          ? "Create your customer account."
+          : "Sign in to your customer account." %>
+      </p>
+
+      <% if (errors.length > 0) { %>
+        <div class="auth-errors" role="alert">
+          <ul class="mb-0">
+            <% errors.forEach((error) => { %>
+              <li><%= error %></li>
+            <% }); %>
+          </ul>
+        </div>
+      <% } %>
+
+      <form
+        action="<%= isRegister ? '/register' : '/login' %>"
+        method="POST"
+      >
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+        <% if (isRegister) { %>
+          <div class="mb-3">
+            <label for="name" class="form-label">Full name</label>
+            <input
+              id="name"
+              name="name"
+              class="form-control"
+              type="text"
+              autocomplete="name"
+              minlength="2"
+              maxlength="100"
+              value="<%= values.name %>"
+              required
+            >
+          </div>
+        <% } %>
+
+        <div class="mb-3">
+          <label for="email" class="form-label">Email address</label>
+          <input
+            id="email"
+            name="email"
+            class="form-control"
+            type="email"
+            autocomplete="email"
+            maxlength="254"
+            value="<%= values.email %>"
+            required
+          >
+        </div>
+
+        <div class="mb-3">
+          <label for="password" class="form-label">Password</label>
+          <input
+            id="password"
+            name="password"
+            class="form-control"
+            type="password"
+            autocomplete="<%= isRegister ? 'new-password' : 'current-password' %>"
+            <% if (isRegister) { %>
+              minlength="15"
+              aria-describedby="passwordHelp"
+            <% } %>
+            required
+          >
+
+          <% if (isRegister) { %>
+            <p id="passwordHelp" class="auth-help">
+              Use a long passphrase of at least 15 characters.
+              Maximum 72 UTF-8 bytes; some characters use multiple bytes.
+            </p>
+          <% } %>
+        </div>
+
+        <% if (isRegister) { %>
+          <div class="mb-4">
+            <label for="confirmPassword" class="form-label">
+              Confirm password
+            </label>
+            <input
+              id="confirmPassword"
+              name="confirmPassword"
+              class="form-control"
+              type="password"
+              autocomplete="new-password"
+              required
+            >
+          </div>
+        <% } %>
+
+        <button class="btn btn-brand w-100" type="submit">
+          <%= isRegister ? "Create Account" : "Sign In" %>
+        </button>
+      </form>
+
+      <div class="auth-links">
+        <% if (isRegister) { %>
+          <a href="/login">Already registered? Sign in</a>
+        <% } else { %>
+          <a href="/register">Create an account</a>
+          <a href="/forgot-password">Forgot password?</a>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</main>
+
+<%- include("partials/footer") %>
+<%- include("partials/scripts") %>

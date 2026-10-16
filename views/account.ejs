@@ -1,0 +1,63 @@
+<%- include("partials/head") %>
+<%- include("partials/navbar") %>
+
+<main id="main-content" class="section-space">
+  <div class="container">
+    <p class="eyebrow">YOUR IRON CULTURE ACCOUNT</p>
+    <h1 class="section-title">Welcome, <%= currentUser.name %></h1>
+
+    <div class="row g-4 mt-2">
+      <div class="col-lg-7">
+        <section class="account-panel">
+          <h2>Your Details</h2>
+
+          <dl class="account-details">
+            <dt>Name</dt>
+            <dd><%= currentUser.name %></dd>
+
+            <dt>Email</dt>
+            <dd><%= currentUser.email %></dd>
+
+            <dt>Joined</dt>
+            <dd>
+              <%= new Date(currentUser.created_at).toLocaleDateString(
+                "en-ZA",
+                {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                  timeZone: "Africa/Johannesburg"
+                }
+              ) %>
+            </dd>
+          </dl>
+
+          <a class="btn btn-brand" href="/shop">
+            Browse the Shop
+          </a>
+        </section>
+      </div>
+
+      <div class="col-lg-5">
+        <section class="account-panel">
+          <h2>Your Account</h2>
+
+          <p class="text-muted-custom">
+            Saved addresses, order history and loyalty information
+            will appear here as those services become available.
+          </p>
+
+          <form action="/logout" method="POST">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button class="btn btn-outline-brand" type="submit">
+              Sign Out
+            </button>
+          </form>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<%- include("partials/footer") %>
+<%- include("partials/scripts") %>
