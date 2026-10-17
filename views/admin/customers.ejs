@@ -1,0 +1,98 @@
+<%- include("partials/header") %>
+
+<div class="admin-page-heading">
+  <div>
+    <p class="eyebrow">CUSTOMER MANAGEMENT</p>
+    <h1 class="section-title mb-0">Customers</h1>
+  </div>
+</div>
+
+<form action="/admin/customers" method="GET" class="admin-search mb-4">
+  <label for="customerSearch" class="visually-hidden">
+    Search by name or email
+  </label>
+
+  <input
+    id="customerSearch"
+    name="q"
+    type="search"
+    class="form-control"
+    maxlength="100"
+    value="<%= search %>"
+    placeholder="Search by name or email"
+  >
+
+  <button type="submit" class="btn btn-outline-brand">
+    Search
+  </button>
+</form>
+
+<p class="text-muted-custom">
+  <%= total %> customers. Admin accounts are excluded.
+</p>
+
+<section class="admin-panel">
+  <div class="table-responsive">
+    <table class="table admin-table">
+      <thead>
+        <tr>
+          <th scope="col">Name</th>
+          <th scope="col">Email</th>
+          <th scope="col">Registered</th>
+          <th scope="col">Status</th>
+          <th scope="col">Action</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <% customers.forEach((customer) => { %>
+          <tr>
+            <td><%= customer.name %></td>
+            <td><%= customer.email %></td>
+            <td><%= formatDate(customer.created_at) %></td>
+            <td><%= customer.is_active ? "Active" : "Inactive" %></td>
+
+            <td>
+              <a
+                href="/admin/customers/<%= customer.id %>"
+                class="btn btn-outline-brand"
+              >
+                View
+              </a>
+            </td>
+          </tr>
+        <% }); %>
+
+        <% if (customers.length === 0) { %>
+          <tr>
+            <td colspan="5">No customer accounts match your search.</td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<nav class="shop-pagination" aria-label="Customer pages">
+  <% if (page > 1) { %>
+    <a
+      class="btn btn-outline-brand"
+      href="/admin/customers?q=<%= encodeURIComponent(search) %>&page=<%= page - 1 %>"
+    >
+      Previous
+    </a>
+  <% } %>
+
+  <span>Page <%= page %> of <%= totalPages %></span>
+
+  <% if (page < totalPages) { %>
+    <a
+      class="btn btn-outline-brand"
+      href="/admin/customers?q=<%= encodeURIComponent(search) %>&page=<%= page + 1 %>"
+    >
+      Next
+    </a>
+  <% } %>
+</nav>
+
+<%- include("partials/footer") %>

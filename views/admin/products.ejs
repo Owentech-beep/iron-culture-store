@@ -1,0 +1,132 @@
+<%- include("partials/header") %>
+
+<div class="admin-page-heading">
+  <div>
+    <p class="eyebrow">CATALOGUE MANAGEMENT</p>
+    <h1 class="section-title mb-0">Products</h1>
+  </div>
+
+  <a href="/admin/products/new" class="btn btn-brand">
+    Add Product
+  </a>
+</div>
+
+<form action="/admin/products" method="GET" class="admin-search mb-4">
+  <label for="productSearch" class="visually-hidden">Search products</label>
+
+  <input
+    id="productSearch"
+    type="search"
+    name="q"
+    value="<%= search %>"
+    maxlength="100"
+    class="form-control"
+    placeholder="Search product names or slugs"
+  >
+
+  <button type="submit" class="btn btn-outline-brand">Search</button>
+</form>
+
+<p class="text-muted-custom"><%= total %> products</p>
+
+<section class="admin-panel">
+  <div class="table-responsive">
+    <table class="table admin-table">
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>Brand</th>
+          <th>Price</th>
+          <th>Stock</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <% products.forEach((product) => { %>
+          <tr>
+            <td>
+              <strong><%= product.name %></strong>
+
+              <% if (product.is_demo) { %>
+                <span class="demo-label d-inline-block mt-2 mb-0">
+                  Demo
+                </span>
+              <% } %>
+            </td>
+
+            <td><%= product.brand_name %></td>
+
+            <td>
+              <%= formatMoney(product.sale_price ?? product.price) %>
+            </td>
+
+            <td><%= product.stock %></td>
+
+            <td>
+              <%= product.is_active ? "Published" : "Unpublished" %>
+            </td>
+
+            <td>
+              <div class="d-flex flex-wrap gap-2">
+                <a
+                  href="/admin/products/<%= product.id %>/edit"
+                  class="btn btn-outline-brand"
+                >
+                  Edit
+                </a>
+
+                <% if (product.is_active) { %>
+                  <form
+                    action="/admin/products/<%= product.id %>/archive"
+                    method="POST"
+                  >
+                    <input
+                      type="hidden"
+                      name="_csrf"
+                      value="<%= csrfToken %>"
+                    >
+                    <button type="submit" class="btn btn-outline-brand">
+                      Archive
+                    </button>
+                  </form>
+                <% } %>
+              </div>
+            </td>
+          </tr>
+        <% }); %>
+
+        <% if (products.length === 0) { %>
+          <tr>
+            <td colspan="6">No products match your search.</td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<nav class="shop-pagination" aria-label="Product pages">
+  <% if (page > 1) { %>
+    <a
+      class="btn btn-outline-brand"
+      href="/admin/products?q=<%= encodeURIComponent(search) %>&page=<%= page - 1 %>"
+    >
+      Previous
+    </a>
+  <% } %>
+
+  <span>Page <%= page %> of <%= totalPages %></span>
+
+  <% if (page < totalPages) { %>
+    <a
+      class="btn btn-outline-brand"
+      href="/admin/products?q=<%= encodeURIComponent(search) %>&page=<%= page + 1 %>"
+    >
+      Next
+    </a>
+  <% } %>
+</nav>
+
+<%- include("partials/footer") %>

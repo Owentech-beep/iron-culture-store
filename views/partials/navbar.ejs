@@ -74,11 +74,17 @@
             </a>
             </li>
 
-          <li class="nav-item">
-            <span class="nav-link disabled" aria-disabled="true">
-              Cart
-            </span>
-          </li>
+         <li class="nav-item">
+            <a
+                class="nav-link <%= activePage === 'cart' ? 'active' : '' %>"
+                href="/cart"
+            >
+                Cart
+                <span class="cart-badge">
+                <%= typeof cartCount !== "undefined" ? cartCount : 0 %>
+                </span>
+            </a>
+            </li>
         </ul>
       </div>
     </div>

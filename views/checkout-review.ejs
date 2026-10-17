@@ -1,0 +1,125 @@
+<%- include("partials/head") %>
+<%- include("partials/navbar") %>
+
+<main id="main-content" class="section-space">
+  <div class="container">
+    <p class="eyebrow">STEP 2 — REVIEW</p>
+    <h1 class="section-title">Review Your Order</h1>
+
+    <% if (cart.items.some((item) => item.isDemo)) { %>
+      <div class="demo-notice">
+        This is a development test order containing demo products.
+        It will not be charged or fulfilled.
+      </div>
+    <% } %>
+
+    <div class="row g-4">
+      <div class="col-lg-8">
+        <section class="account-panel">
+          <h2>Items</h2>
+
+          <% cart.items.forEach((item) => { %>
+            <div class="order-line">
+              <div>
+                <strong><%= item.name %></strong>
+                <p class="text-muted-custom mb-0">
+                  <%= item.flavour %> · Quantity <%= item.quantity %>
+                </p>
+              </div>
+
+              <strong><%= formatMoney(item.lineTotalCents) %></strong>
+            </div>
+          <% }); %>
+
+          <h2 class="mt-4">Deliver To</h2>
+
+          <address>
+            <%= draft.address.firstName %> <%= draft.address.lastName %><br>
+            <%= draft.address.street %><br>
+            <%= draft.address.suburb %>, <%= draft.address.city %><br>
+            <%= draft.address.province %>, <%= draft.address.postalCode %><br>
+            South Africa
+          </address>
+
+          <p>
+            <%= draft.address.email %><br>
+            <%= draft.address.phone %>
+          </p>
+
+          <a href="/checkout" class="btn btn-outline-brand">
+            Edit Address
+          </a>
+
+          <a href="/cart" class="btn btn-outline-brand">
+            Edit Cart
+          </a>
+        </section>
+      </div>
+
+      <div class="col-lg-4">
+        <section class="cart-summary">
+          <h2>Order Summary</h2>
+
+          <dl class="cart-summary-lines">
+            <div>
+              <dt>Subtotal</dt>
+              <dd><%= formatMoney(cart.subtotalCents) %></dd>
+            </div>
+
+            <div>
+              <dt>Delivery</dt>
+              <dd>
+                <%= shipping.status === "free"
+                  ? "Free"
+                  : "Quote required" %>
+              </dd>
+            </div>
+
+            <div>
+              <dt>Total</dt>
+              <dd>
+                <%= shipping.totalCents === null
+                  ? "Awaiting delivery quote"
+                  : formatMoney(shipping.totalCents) %>
+              </dd>
+            </div>
+          </dl>
+
+          <p class="text-muted-custom">
+            <% if (shipping.status === "quote_required") { %>
+              A delivery quote is required before a final total can
+              be approved. No payment will be taken.
+            <% } else { %>
+              This saves an unpaid pending order.
+              Payment is not available yet.
+            <% } %>
+          </p>
+
+          <p class="text-muted-custom">
+            Stock is not reserved. Availability will be checked again
+            before payment becomes available.
+          </p>
+
+          <form action="/checkout/orders" method="POST">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+            <input
+              type="hidden"
+              name="checkoutToken"
+              value="<%= draft.token %>"
+            >
+
+            <button class="btn btn-brand w-100" type="submit">
+              <%= shipping.status === "quote_required"
+                ? "Request Delivery Quote"
+                : "Save Pending Order" %>
+            </button>
+          </form>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<%- include("partials/footer") %>
+<%- include("partials/scripts") %>

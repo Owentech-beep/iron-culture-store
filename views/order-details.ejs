@@ -1,0 +1,217 @@
+<%- include("partials/head") %>
+<%- include("partials/navbar") %>
+
+<main id="main-content" class="section-space">
+  <div class="container">
+    <p class="eyebrow">ORDER DETAILS</p>
+    <h1 class="section-title">Your Order</h1>
+    <p class="order-number"><%= order.order_number %></p>
+
+    <% if (order.is_demo) { %>
+      <div class="demo-notice">
+        Development test order. No payment or delivery will occur.
+      </div>
+    <% } %>
+
+    <div class="row g-4">
+      <div class="col-lg-8">
+        <section class="account-panel">
+          <h2>Items</h2>
+
+          <% order.items.forEach((item) => { %>
+            <div class="order-line">
+              <div>
+                <strong><%= item.product_name %></strong>
+                <p class="text-muted-custom mb-0">
+                  <%= item.variant_name %>
+                  · Quantity <%= item.quantity %>
+                  · <%= formatMoney(item.unit_price_cents) %> each
+                </p>
+              </div>
+
+              <strong><%= formatMoney(item.line_total_cents) %></strong>
+            </div>
+          <% }); %>
+
+          <% const address = order.shipping_address; %>
+
+          <h2 class="mt-4">Delivery Address</h2>
+
+          <address>
+            <%= address.firstName %> <%= address.lastName %><br>
+            <%= address.street %><br>
+            <%= address.suburb %>, <%= address.city %><br>
+            <%= address.province %>, <%= address.postalCode %><br>
+            South Africa
+          </address>
+
+          <p>
+            <%= address.email %><br>
+            <%= address.phone %>
+          </p>
+        </section>
+      </div>
+
+      <div class="col-lg-4">
+        <section class="cart-summary">
+          <h2>Order Status</h2>
+
+          <p>Created: <%= formatDate(order.created_at) %></p>
+          <p>Order: <strong><%= order.status %></strong></p>
+          <p>Payment: <strong><%= order.payment_status %></strong></p>
+
+          <% if (order.tracking_number) { %>
+            <div class="notice-panel mb-3">
+              <h2 class="h6">Delivery Tracking</h2>
+              <p class="mb-1"><%= order.tracking_courier %></p>
+              <p class="mb-0">
+                Tracking number:
+                <strong><%= order.tracking_number %></strong>
+              </p>
+            </div>
+          <% } %>
+
+          <% if (order.status === "cancelled") { %>
+            <div class="notice-panel mb-3">
+              This order has been cancelled.
+            </div>
+          <% } %>
+
+          <dl class="cart-summary-lines">
+            <div>
+              <dt>Subtotal</dt>
+              <dd><%= formatMoney(order.subtotal_cents) %></dd>
+            </div>
+
+            <div>
+              <dt>Delivery</dt>
+              <dd>
+                <% if (order.delivery_cents === null) { %>
+                  Quote required
+                <% } else if (Number(order.delivery_cents) === 0) { %>
+                  Free
+                <% } else { %>
+                  <%= formatMoney(order.delivery_cents) %>
+                <% } %>
+              </dd>
+            </div>
+
+            <div>
+              <dt>Total</dt>
+              <dd>
+                <%= order.total_cents === null
+                  ? "Not finalised"
+                  : formatMoney(order.total_cents) %>
+              </dd>
+            </div>
+          </dl>
+
+          <% if (order.shipping_rate_status === "quote_required") { %>
+            <p class="text-muted-custom">
+              Your delivery quote request is saved.
+              The final delivery charge still needs to be provided
+              and approved before payment.
+            </p>
+          <% } %>
+
+            <% if (order.shipping_rate_status === "quoted") { %>
+              <div class="notice-panel mb-3">
+                <h2 class="h6">Delivery Quote</h2>
+
+                <p>
+                  <%= order.courier_name %>
+                  — <%= order.courier_service %>
+                </p>
+
+                <p>
+                  Delivery:
+                  <strong><%= formatMoney(order.delivery_cents) %></strong>
+                </p>
+
+                <p>
+                  Order total including delivery:
+                  <strong><%= formatMoney(order.total_cents) %></strong>
+                </p>
+
+                <% if (order.quote_accepted_at) { %>
+                  <p class="mb-0" role="status">
+                    You accepted this delivery quote.
+                    Acceptance does not itself take payment or reserve stock.
+                  </p>
+
+                <% } else if (
+                  order.status === "pending" &&
+                  order.payment_status === "unpaid"
+                ) { %>
+
+                  <p>
+                    Review the delivery charge and order total before accepting.
+                    No payment will be taken and stock will not be reserved.
+                  </p>
+
+                  <form
+                    action="/orders/<%= order.id %>/accept-delivery-quote"
+                    method="POST"
+                  >
+                    <input
+                      type="hidden"
+                      name="_csrf"
+                      value="<%= csrfToken %>"
+                    >
+
+                    <input
+                      type="hidden"
+                      name="quoteVersion"
+                      value="<%= order.quote_version %>"
+                    >
+
+                    <button type="submit" class="btn btn-brand w-100">
+                      Accept Delivery Quote
+                    </button>
+                  </form>
+
+                <% } else { %>
+                  <p class="mb-0">
+                    This order is no longer eligible for quote acceptance.
+                  </p>
+                <% } %>
+              </div>
+            <% } %>
+          <% if (
+            order.status === "pending" &&
+            order.payment_status === "unpaid"
+          ) { %>
+            <p class="text-muted-custom">
+              Payment is not available yet. This order has not reserved stock.
+            </p>
+          <% } %>
+
+          <a
+            href="/orders/<%= order.id %>/payment"
+            class="btn btn-outline-brand w-100 mb-3"
+          >
+            View Payment Status
+          </a>
+
+          <a href="/orders" class="btn btn-outline-brand w-100">
+            My Orders
+          </a>
+
+          <a
+            href="/orders/<%= order.id %>/payment"
+            class="btn btn-outline-brand w-100 mb-3"
+            >
+            View Payment Status
+            </a>
+
+            <a href="/orders" class="btn btn-outline-brand w-100">
+            My Orders
+            </a>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<%- include("partials/footer") %>
+<%- include("partials/scripts") %>

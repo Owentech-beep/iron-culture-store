@@ -1,0 +1,129 @@
+<%- include("partials/head") %>
+<%- include("partials/navbar") %>
+
+<main id="main-content" class="section-space">
+  <div class="container">
+    <p class="eyebrow">STEP 1 — DELIVERY DETAILS</p>
+    <h1 class="section-title">Checkout</h1>
+
+    <% if (errors.length > 0) { %>
+      <div class="auth-errors" role="alert">
+        <ul class="mb-0">
+          <% errors.forEach((error) => { %>
+            <li><%= error %></li>
+          <% }); %>
+        </ul>
+      </div>
+    <% } %>
+
+    <div class="row g-4 mt-2">
+      <div class="col-lg-8">
+        <form
+          action="/checkout/review"
+          method="POST"
+          class="account-panel checkout-form"
+        >
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+          <h2>Delivery Address</h2>
+
+          <% const fields = [
+            ["firstName", "First name", "text", "given-name", 100],
+            ["lastName", "Last name", "text", "family-name", 100],
+            ["email", "Email address", "email", "email", 254],
+            ["phone", "Phone number", "tel", "tel", 30],
+            ["street", "Street address, building and unit", "text", "address-line1", 200],
+            ["suburb", "Suburb", "text", "address-line2", 100],
+            ["city", "City / town", "text", "address-level2", 100],
+            ["postalCode", "Postal code", "text", "postal-code", 4]
+          ]; %>
+
+          <div class="row g-3">
+            <% fields.forEach(([name, label, type, autocomplete, max]) => { %>
+              <div class="<%= name === 'street' ? 'col-12' : 'col-md-6' %>">
+                <label for="<%= name %>" class="form-label">
+                  <%= label %>
+                </label>
+
+                <input
+                  id="<%= name %>"
+                  name="<%= name %>"
+                  type="<%= type %>"
+                  autocomplete="<%= autocomplete %>"
+                  maxlength="<%= max %>"
+                  value="<%= values[name] || '' %>"
+                  class="form-control"
+                  <% if (name === "postalCode") { %>
+                    inputmode="numeric"
+                    pattern="[0-9]{4}"
+                  <% } %>
+                  required
+                >
+              </div>
+            <% }); %>
+
+            <div class="col-md-6">
+              <label for="province" class="form-label">Province</label>
+
+              <select
+                id="province"
+                name="province"
+                class="form-select product-select"
+                autocomplete="address-level1"
+                required
+              >
+                <option value="">Choose a province</option>
+
+                <% provinces.forEach((province) => { %>
+                  <option
+                    value="<%= province %>"
+                    <%= values.province === province ? "selected" : "" %>
+                  >
+                    <%= province %>
+                  </option>
+                <% }); %>
+              </select>
+            </div>
+
+            <div class="col-12">
+              <p class="text-muted-custom">Country: South Africa</p>
+
+              <button type="submit" class="btn btn-brand">
+                Review Order
+              </button>
+
+              <a href="/cart" class="btn btn-outline-brand">
+                Back to Cart
+              </a>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <div class="col-lg-4">
+        <aside class="cart-summary">
+          <h2>Your Cart</h2>
+          <p><%= cart.itemCount %> items</p>
+
+          <p>
+            Subtotal:
+            <strong><%= formatMoney(cart.subtotalCents) %></strong>
+          </p>
+
+          <p class="text-muted-custom">
+            Free delivery on orders over R550 after discounts.
+            Orders of R550 or less require a courier quote.
+          </p>
+
+          <p class="text-muted-custom">
+            No payment is taken during this checkout.
+            Stock is not reserved.
+          </p>
+        </aside>
+      </div>
+    </div>
+  </div>
+</main>
+
+<%- include("partials/footer") %>
+<%- include("partials/scripts") %>

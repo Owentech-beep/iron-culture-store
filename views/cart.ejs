@@ -1,0 +1,177 @@
+<%- include("partials/head") %>
+<%- include("partials/navbar") %>
+
+<main id="main-content" class="section-space">
+  <div class="container">
+    <p class="eyebrow">YOUR SELECTION</p>
+    <h1 class="section-title">Your Cart</h1>
+
+    <% if (errorMessage) { %>
+      <div class="auth-errors" role="alert">
+        <%= errorMessage %>
+      </div>
+    <% } %>
+
+    <% if (cart.items.length === 0) { %>
+      <div class="shop-empty mt-4">
+        <h2 class="section-title">Your Cart Is Empty</h2>
+        <p>Choose a product and an available option to get started.</p>
+        <a href="/shop" class="btn btn-brand">Browse the Shop</a>
+      </div>
+    <% } else { %>
+      <div class="row g-4 mt-2">
+        <div class="col-lg-8">
+          <% cart.items.forEach((item) => { %>
+            <article class="cart-item">
+              <div class="cart-item-heading">
+                <div>
+                  <% if (item.isDemo) { %>
+                    <span class="demo-label d-inline-block">
+                      Demo — not for sale
+                    </span>
+                  <% } %>
+
+                  <h2>
+                    <% if (item.available) { %>
+                      <a href="/product/<%= item.slug %>">
+                        <%= item.name %>
+                      </a>
+                    <% } else { %>
+                      <%= item.name %>
+                    <% } %>
+                  </h2>
+
+                  <p class="text-muted-custom mb-1">
+                    <%= item.flavour %>
+                  </p>
+
+                  <p class="text-muted-custom mb-0">
+                    <%= formatMoney(item.unitPriceCents) %> each
+                  </p>
+                </div>
+
+                <strong><%= formatMoney(item.lineTotalCents) %></strong>
+              </div>
+
+              <% if (item.needsAttention) { %>
+                <p class="cart-warning" role="status">
+                  <% if (!item.available) { %>
+                    This item is no longer available. Please remove it.
+                  <% } else { %>
+                    Only <%= item.stock %> units are currently available.
+                    Reduce the quantity or remove this item.
+                  <% } %>
+                </p>
+              <% } %>
+
+              <div class="cart-item-actions">
+                <% if (item.available && item.stock > 0) { %>
+                  <form
+                    action="/cart/items/<%= item.id %>/update"
+                    method="POST"
+                    class="cart-update-form"
+                  >
+                    <input
+                      type="hidden"
+                      name="_csrf"
+                      value="<%= csrfToken %>"
+                    >
+
+                    <label
+                      for="quantity-<%= item.id %>"
+                      class="visually-hidden"
+                    >
+                      Quantity for <%= item.name %>, <%= item.flavour %>
+                    </label>
+
+                    <input
+                      id="quantity-<%= item.id %>"
+                      name="quantity"
+                      type="number"
+                      min="1"
+                      max="<%= Math.min(99, item.stock) %>"
+                      step="1"
+                      value="<%= item.quantity %>"
+                      class="form-control cart-quantity"
+                      required
+                    >
+
+                    <button type="submit" class="btn btn-outline-brand">
+                      Update
+                    </button>
+                  </form>
+                <% } %>
+
+                <form
+                  action="/cart/items/<%= item.id %>/remove"
+                  method="POST"
+                >
+                  <input
+                    type="hidden"
+                    name="_csrf"
+                    value="<%= csrfToken %>"
+                  >
+
+                  <button type="submit" class="cart-remove">
+                    Remove
+                  </button>
+                </form>
+              </div>
+            </article>
+          <% }); %>
+
+          <a href="/shop" class="btn btn-outline-brand mt-3">
+            Continue Shopping
+          </a>
+        </div>
+
+        <div class="col-lg-4">
+          <section class="cart-summary">
+            <h2>Order Summary</h2>
+
+            <dl class="cart-summary-lines">
+              <div>
+                <dt>Items</dt>
+                <dd><%= cart.itemCount %></dd>
+              </div>
+
+              <div>
+                <dt>Item subtotal</dt>
+                <dd><%= formatMoney(cart.subtotalCents) %></dd>
+              </div>
+
+              <div>
+                <dt>Delivery</dt>
+                <dd>Not calculated</dd>
+              </div>
+            </dl>
+
+            <% if (cart.hasUnavailableItems) { %>
+              <p class="cart-warning">
+                Some items need attention before you can proceed.
+              </p>
+            <% } %>
+
+            <p class="text-muted-custom">
+              The subtotal reflects all listed items at current prices.
+              Prices and availability will be checked again at checkout.
+            </p>
+
+            <% if (!cart.hasUnavailableItems) { %>
+                <a href="/checkout" class="btn btn-brand w-100">
+                    Proceed to Checkout
+                </a>
+                <% } else { %>
+                <p class="cart-warning">
+                    Update unavailable items before continuing.
+                </p>
+                <% } %>
+          </section>
+        </div>
+      </div>
+    <% } %>
+  </div>
+</main>
+
+<%- include("partials/footer") %>
+<%- include("partials/scripts") %>

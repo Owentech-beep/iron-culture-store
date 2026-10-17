@@ -1,0 +1,324 @@
+<%- include("partials/header") %>
+
+<div class="admin-page-heading">
+  <div>
+    <p class="eyebrow">CATALOGUE MANAGEMENT</p>
+
+    <h1 class="section-title mb-0">
+      <%= values.id ? "Edit Product" : "Add Product" %>
+    </h1>
+  </div>
+
+  <a href="/admin/products" class="btn btn-outline-brand">
+    Back to Products
+  </a>
+</div>
+
+<% if (errors.length > 0) { %>
+  <div class="auth-errors" role="alert">
+    <ul class="mb-0">
+      <% errors.forEach((error) => { %>
+        <li><%= error %></li>
+      <% }); %>
+    </ul>
+  </div>
+<% } %>
+
+<form
+  action="<%= values.id ? '/admin/products/' + values.id : '/admin/products' %>"
+  method="POST"
+  class="admin-panel admin-form p-4"
+>
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+  <div class="row g-3">
+    <div class="col-md-6">
+      <label for="name" class="form-label">Product name</label>
+      <input
+        id="name"
+        name="name"
+        class="form-control"
+        maxlength="180"
+        value="<%= values.name || '' %>"
+        required
+      >
+    </div>
+
+    <div class="col-md-6">
+      <label for="slug" class="form-label">URL slug</label>
+      <input
+        id="slug"
+        name="slug"
+        class="form-control"
+        maxlength="160"
+        placeholder="demo-protein-chocolate"
+        value="<%= values.slug || '' %>"
+        required
+      >
+      <p class="auth-help">
+        Keep an established slug unchanged to preserve product links.
+      </p>
+    </div>
+
+    <div class="col-md-6">
+      <label for="category_id" class="form-label">Category</label>
+      <select id="category_id" name="category_id" class="form-select" required>
+        <option value="">Choose a category</option>
+
+        <% categories.forEach((category) => { %>
+          <option
+            value="<%= category.id %>"
+            <%= Number(values.category_id) === category.id ? "selected" : "" %>
+          >
+            <%= category.name %>
+          </option>
+        <% }); %>
+      </select>
+    </div>
+
+    <div class="col-md-6">
+      <label for="brand_id" class="form-label">Brand</label>
+      <select id="brand_id" name="brand_id" class="form-select" required>
+        <option value="">Choose a brand</option>
+
+        <% brands.forEach((brand) => { %>
+          <option
+            value="<%= brand.id %>"
+            <%= Number(values.brand_id) === brand.id ? "selected" : "" %>
+          >
+            <%= brand.name %>
+          </option>
+        <% }); %>
+      </select>
+    </div>
+
+    <div class="col-md-6">
+      <label for="price" class="form-label">Price (R)</label>
+      <input
+        id="price"
+        name="price"
+        type="number"
+        min="0.01"
+        max="9999999.99"
+        step="0.01"
+        class="form-control"
+        value="<%= values.price ?? '' %>"
+        required
+      >
+    </div>
+
+    <div class="col-md-6">
+      <label for="sale_price" class="form-label">Sale price (optional)</label>
+      <input
+        id="sale_price"
+        name="sale_price"
+        type="number"
+        min="0.01"
+        max="9999999.99"
+        step="0.01"
+        class="form-control"
+        value="<%= values.sale_price ?? '' %>"
+      >
+    </div>
+
+    <div class="col-12">
+      <label for="image_url" class="form-label">Main image path</label>
+      <input
+        id="image_url"
+        name="image_url"
+        class="form-control"
+        maxlength="300"
+        placeholder="/images/product-front.jpg"
+        value="<%= values.image_url || '' %>"
+      >
+
+      <p class="auth-help">
+        Use an existing file in public/images. Leave blank if no image
+        is available. Upload controls will be added separately.
+      </p>
+    </div>
+
+    <% const textFields = [
+      ["short_description", "Short description"],
+      ["description", "Full description"],
+      ["ingredients", "Ingredients"],
+      ["allergens", "Allergen information"]
+    ]; %>
+
+    <% textFields.forEach(([key, label]) => { %>
+      <div class="col-12">
+        <label for="<%= key %>" class="form-label"><%= label %></label>
+
+        <textarea
+          id="<%= key %>"
+          name="<%= key %>"
+          class="form-control"
+          rows="<%= key === 'description' ? 6 : 3 %>"
+          maxlength="5000"
+        ><%= values[key] || '' %></textarea>
+      </div>
+    <% }); %>
+
+    <div class="col-12">
+      <% const flags = [
+        ["is_active", "Published"],
+        ["is_featured", "Featured on homepage"],
+        ["is_demo", "Demo product — exclude from live payments"]
+      ]; %>
+
+      <% flags.forEach(([key, label]) => { %>
+        <div class="form-check mb-3">
+          <input
+            id="<%= key %>"
+            name="<%= key %>"
+            type="checkbox"
+            class="form-check-input"
+            <%= values[key] ? "checked" : "" %>
+          >
+
+          <label for="<%= key %>" class="form-check-label">
+            <%= label %>
+          </label>
+        </div>
+      <% }); %>
+
+      <button class="btn btn-brand" type="submit">
+        Save Product
+      </button>
+    </div>
+  </div>
+</form>
+
+<% if (values.id) { %>
+  <section class="admin-panel p-4 mt-4">
+    <h2 class="h5 mb-3">Product Options</h2>
+
+    <p class="text-muted-custom">
+      Each flavour or option has its own SKU and stock.
+      For a product without flavours, use an option such as “Standard”.
+    </p>
+
+    <div class="table-responsive mb-4">
+      <table class="table admin-table">
+        <thead>
+          <tr>
+            <th>Option</th>
+            <th>SKU</th>
+            <th>Stock</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <% values.variants.forEach((variant) => { %>
+            <tr>
+              <td><%= variant.flavour %></td>
+              <td class="admin-sku"><%= variant.sku %></td>
+              <td><%= variant.quantity %></td>
+            </tr>
+          <% }); %>
+
+          <% if (values.variants.length === 0) { %>
+            <tr>
+              <td colspan="3">Add an option before stocking this product.</td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+
+    <form
+      action="/admin/products/<%= values.id %>/variants"
+      method="POST"
+      class="admin-form"
+    >
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+      <label for="flavour" class="form-label">New option name</label>
+
+      <div class="admin-search">
+        <input
+          id="flavour"
+          name="flavour"
+          class="form-control"
+          maxlength="100"
+          placeholder="Chocolate / Vanilla / Standard"
+          required
+        >
+
+        <button type="submit" class="btn btn-brand">Add Option</button>
+      </div>
+    </form>
+
+    <a href="/admin/inventory" class="btn btn-outline-brand mt-3">
+      Manage Stock
+    </a>
+  </section>
+<% } else { %>
+  <p class="text-muted-custom mt-3">
+    Save the product first, then add its options and stock.
+  </p>
+<% } %>
+
+<% if (values.id) { %>
+  <section class="admin-panel p-4 mt-4">
+    <h2 class="h5 mb-3">Main Product Image</h2>
+
+    <% if (values.image_url) { %>
+      <img
+        src="<%= values.image_url %>"
+        alt="Current main product image"
+        class="admin-image-preview mb-3"
+        width="240"
+        height="240"
+      >
+    <% } %>
+
+    <p class="text-muted-custom">
+      Save any product edits before uploading. The page reloads after
+      a successful upload.
+    </p>
+
+    <form
+      id="mainImageUpload"
+      action="/admin/products/<%= values.id %>/image"
+      method="POST"
+      enctype="multipart/form-data"
+      data-csrf="<%= csrfToken %>"
+      class="admin-form"
+    >
+      <label for="mainImageFile" class="form-label">
+        JPEG, PNG or WebP — maximum 5 MB
+      </label>
+
+      <input
+        id="mainImageFile"
+        name="image"
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        class="form-control mb-3"
+        required
+      >
+
+      <button type="submit" class="btn btn-brand">
+        Upload Main Image
+      </button>
+
+      <p
+        id="imageUploadStatus"
+        class="text-muted-custom mt-3 mb-0"
+        role="status"
+        aria-live="polite"
+      ></p>
+    </form>
+
+    <noscript>
+      <p class="cart-warning">
+        Enable JavaScript to use the image uploader.
+      </p>
+    </noscript>
+  </section>
+
+  <script src="/js/admin-image.js" defer></script>
+<% } %>
+
+<%- include("partials/footer") %>

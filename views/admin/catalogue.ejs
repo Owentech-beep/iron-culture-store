@@ -1,0 +1,136 @@
+<%- include("partials/header") %>
+
+<div class="admin-page-heading">
+  <div>
+    <p class="eyebrow">CATALOGUE SETTINGS</p>
+    <h1 class="section-title mb-0"><%= title %></h1>
+  </div>
+</div>
+
+<section class="admin-panel p-4 mb-4">
+  <h2 class="h5 mb-3">
+    Add <%= kind === "categories" ? "Category" : "Brand" %>
+  </h2>
+
+  <form
+    action="/admin/catalogue/<%= kind %>"
+    method="POST"
+    class="admin-form"
+  >
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label for="newName" class="form-label">Name</label>
+        <input
+          id="newName"
+          name="name"
+          class="form-control"
+          maxlength="100"
+          required
+        >
+      </div>
+
+      <div class="col-md-6">
+        <label for="newSlug" class="form-label">URL slug</label>
+        <input
+          id="newSlug"
+          name="slug"
+          class="form-control"
+          maxlength="120"
+          placeholder="lowercase-with-hyphens"
+          required
+        >
+      </div>
+
+      <% if (kind === "brands") { %>
+        <div class="col-12">
+          <div class="form-check">
+            <input
+              id="newDemo"
+              name="is_demo"
+              type="checkbox"
+              class="form-check-input"
+              checked
+            >
+            <label for="newDemo" class="form-check-label">
+              Demo brand
+            </label>
+          </div>
+        </div>
+      <% } %>
+
+      <div class="col-12">
+        <button type="submit" class="btn btn-brand">Add</button>
+      </div>
+    </div>
+  </form>
+</section>
+
+<p class="text-muted-custom">
+  Keep existing slugs unchanged where possible to preserve links.
+  Changes below affect the products assigned to each entry.
+</p>
+
+<% entries.forEach((entry) => { %>
+  <section class="admin-panel p-4 mb-3">
+    <form
+      action="/admin/catalogue/<%= kind %>/<%= entry.id %>"
+      method="POST"
+      class="admin-form"
+    >
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+      <div class="row g-3 align-items-end">
+        <div class="col-md-5">
+          <label for="name-<%= entry.id %>" class="form-label">Name</label>
+          <input
+            id="name-<%= entry.id %>"
+            name="name"
+            class="form-control"
+            maxlength="100"
+            value="<%= entry.name %>"
+            required
+          >
+        </div>
+
+        <div class="col-md-5">
+          <label for="slug-<%= entry.id %>" class="form-label">URL slug</label>
+          <input
+            id="slug-<%= entry.id %>"
+            name="slug"
+            class="form-control"
+            maxlength="120"
+            value="<%= entry.slug %>"
+            required
+          >
+        </div>
+
+        <div class="col-md-2">
+          <button type="submit" class="btn btn-outline-brand w-100">
+            Save
+          </button>
+        </div>
+
+        <% if (kind === "brands") { %>
+          <div class="col-12">
+            <div class="form-check">
+              <input
+                id="demo-<%= entry.id %>"
+                name="is_demo"
+                type="checkbox"
+                class="form-check-input"
+                <%= entry.is_demo ? "checked" : "" %>
+              >
+              <label for="demo-<%= entry.id %>" class="form-check-label">
+                Demo brand
+              </label>
+            </div>
+          </div>
+        <% } %>
+      </div>
+    </form>
+  </section>
+<% }); %>
+
+<%- include("partials/footer") %>

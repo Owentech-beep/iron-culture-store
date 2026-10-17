@@ -12,6 +12,12 @@ import { sessionMiddleware } from "./config/session.js";
 import { loadCurrentUser } from "./middleware/authMiddleware.js";
 import { csrfProtection } from "./middleware/csrfMiddleware.js";
 import authRoutes from "./routes/authRoutes.js";
+import cartRoutes from "./routes/cartRoutes.js";
+import { loadCartCount } from "./middleware/cartMiddleware.js";
+import checkoutRoutes from "./routes/checkoutRoutes.js";
+import orderRoutes from "./routes/orderRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -44,12 +50,21 @@ app.use((req, res, next) => {
   res.locals.currentYear = new Date().getFullYear();
   res.locals.currentUser = null;
   res.locals.csrfToken = "";
+  res.locals.cartCount = 0;
   next();
 });
 
 app.use(sessionMiddleware);
 app.use(loadCurrentUser);
 app.use(csrfProtection);
+app.use(loadCartCount);
+
+app.use("/admin", adminRoutes);
+
+app.use("/checkout", checkoutRoutes);
+app.use("/orders", paymentRoutes);
+app.use("/orders", orderRoutes);
+app.use("/cart", cartRoutes);
 
 app.use("/", authRoutes);
 app.use("/", indexRoutes);

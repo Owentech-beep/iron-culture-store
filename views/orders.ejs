@@ -1,0 +1,52 @@
+<%- include("partials/head") %>
+<%- include("partials/navbar") %>
+
+<main id="main-content" class="section-space">
+  <div class="container">
+    <p class="eyebrow">YOUR ACCOUNT</p>
+    <h1 class="section-title">My Orders</h1>
+    <p class="text-muted-custom">Your most recent 50 orders.</p>
+
+    <% if (orders.length === 0) { %>
+      <div class="shop-empty">
+        <p>You have no orders yet.</p>
+        <a href="/shop" class="btn btn-brand">Browse the Shop</a>
+      </div>
+    <% } else { %>
+      <% orders.forEach((order) => { %>
+        <article class="cart-item">
+          <% if (order.is_demo) { %>
+            <span class="demo-label d-inline-block">Demo order</span>
+          <% } %>
+
+          <h2 class="order-number"><%= order.order_number %></h2>
+
+          <p class="text-muted-custom">
+            <%= formatDate(order.created_at) %>
+            · Order: <%= order.status %>
+            · Payment: <%= order.payment_status %>
+          </p>
+
+          <p>
+            <% if (order.total_cents === null) { %>
+              Final total awaiting delivery quote
+            <% } else { %>
+              Total: <strong><%= formatMoney(order.total_cents) %></strong>
+            <% } %>
+          </p>
+
+          <a href="/orders/<%= order.id %>" class="btn btn-outline-brand">
+            View Order
+          </a>
+        </article>
+      <% }); %>
+    <% } %>
+
+    <a href="/account" class="btn btn-outline-brand mt-3">
+      Back to Account
+    </a>
+  </div>
+</main>
+
+<%- include("partials/footer") %>
+<%- include("partials/scripts") %>

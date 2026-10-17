@@ -96,62 +96,83 @@
               "See the product information below for details." %>
           </p>
 
-          <% if (flavours.length > 0) { %>
-            <div class="mb-4">
-              <label for="productFlavour" class="form-label">
-                Flavour
-              </label>
+         <% if (currentUser) { %>
+            <form action="/cart/items" method="POST" class="purchase-panel">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 
-              <select
-            id="productFlavour"
-            class="form-select product-select"
-            >
-            <option value="">Choose a flavour</option>
+                <div class="mb-3">
+                <label for="productFlavour" class="form-label">
+                    Product Option
+                </label>
 
-            <% product.variants.forEach((variant) => { %>
-                <option
-                value="<%= variant.id %>"
-                data-stock="<%= variant.stock %>"
+                <select
+                    id="productFlavour"
+                    name="variantId"
+                    class="form-select product-select"
+                    required
                 >
-                <%= variant.flavour %>
-                <%= variant.stock > 0 ? "" : " — Out of stock" %>
-                </option>
-            <% }); %>
-            </select>
+                    <option value="">Choose an option</option>
 
-            <p
-            id="variantStock"
-            class="text-muted-custom mt-2 mb-0"
-            aria-live="polite"
-            ></p>
+                    <% product.variants.forEach((variant) => { %>
+                    <option
+                        value="<%= variant.id %>"
+                        data-stock="<%= variant.stock %>"
+                        <%= variant.stock <= 0 ? "disabled" : "" %>
+                    >
+                        <%= variant.flavour %>
+                        <%= variant.stock > 0 ? "" : " — Out of stock" %>
+                    </option>
+                    <% }); %>
+                </select>
+
+                <p
+                    id="variantStock"
+                    class="text-muted-custom mt-2 mb-0"
+                    aria-live="polite"
+                ></p>
+                </div>
+
+                <div class="mb-3">
+                <label for="productQuantity" class="form-label">
+                    Quantity
+                </label>
+
+                <input
+                    id="productQuantity"
+                    name="quantity"
+                    class="form-control cart-quantity"
+                    type="number"
+                    min="1"
+                    max="99"
+                    step="1"
+                    value="1"
+                    required
+                >
+                </div>
+
+                <% if (product.isDemo) { %>
+                <p>
+                    Demo cart testing only. This sample cannot be purchased.
+                </p>
+                <% } %>
+
+                <button
+                class="btn btn-brand w-100"
+                type="submit"
+                <%= product.stock <= 0 ? "disabled" : "" %>
+                >
+                <%= product.stock > 0 ? "Add to Cart" : "Out of Stock" %>
+                </button>
+            </form>
+            <% } else { %>
+            <div class="purchase-panel">
+                <p>Sign in to add products to your saved cart.</p>
+
+                <a class="btn btn-brand w-100" href="/login">
+                Sign In
+                </a>
             </div>
-          <% } %>
-
-          <div class="purchase-panel">
-            <p id="purchaseAvailability">
-              Online ordering is not available yet.
-            </p>
-
-            <div class="d-flex flex-column flex-sm-row gap-3">
-              <button
-                type="button"
-                class="btn btn-brand flex-fill"
-                disabled
-                aria-describedby="purchaseAvailability"
-              >
-                Add to Cart
-              </button>
-
-              <button
-                type="button"
-                class="btn btn-outline-brand flex-fill"
-                disabled
-                aria-describedby="purchaseAvailability"
-              >
-                Buy Now
-              </button>
-            </div>
-          </div>
+            <% } %>
         </div>
       </div>
     </div>

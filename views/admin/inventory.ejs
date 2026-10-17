@@ -1,0 +1,120 @@
+<%- include("partials/header") %>
+
+<div class="admin-page-heading">
+  <div>
+    <p class="eyebrow">STOCK MANAGEMENT</p>
+    <h1 class="section-title mb-0">Inventory</h1>
+  </div>
+</div>
+
+<form action="/admin/inventory" method="GET" class="admin-search mb-3">
+  <label for="inventorySearch" class="visually-hidden">
+    Search products or SKUs
+  </label>
+
+  <input
+    id="inventorySearch"
+    name="q"
+    type="search"
+    class="form-control"
+    maxlength="100"
+    value="<%= search %>"
+    placeholder="Search product name or SKU"
+  >
+
+  <button type="submit" class="btn btn-outline-brand">Search</button>
+</form>
+
+<p class="text-muted-custom">
+  Showing up to 100 matching options. Search to narrow the list.
+  Enter the new total stock quantity, not the number being added.
+</p>
+
+<% items.forEach((item) => { %>
+  <section class="admin-panel p-4 mb-3">
+    <div class="d-flex justify-content-between flex-wrap gap-2 mb-3">
+      <div>
+        <h2 class="h5">
+          <a href="/admin/products/<%= item.product_id %>/edit">
+            <%= item.product_name %>
+          </a>
+        </h2>
+
+        <p class="text-muted-custom mb-1">
+          <%= item.flavour %>
+          · <%= item.product_active ? "Published" : "Unpublished" %>
+        </p>
+
+        <p class="admin-sku text-muted-custom mb-0"><%= item.sku %></p>
+      </div>
+
+      <% if (item.is_demo) { %>
+        <span class="demo-label align-self-start">Demo</span>
+      <% } %>
+    </div>
+
+    <form
+      action="/admin/inventory/<%= item.id %>"
+      method="POST"
+      class="admin-form"
+    >
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+      <input
+        type="hidden"
+        name="previousQuantity"
+        value="<%= item.quantity %>"
+      >
+
+      <div class="row g-3 align-items-end">
+        <div class="col-sm-4">
+          <label for="stock-<%= item.id %>" class="form-label">
+            Stock quantity
+          </label>
+
+          <input
+            id="stock-<%= item.id %>"
+            name="quantity"
+            type="number"
+            min="0"
+            max="9999999"
+            step="1"
+            class="form-control"
+            value="<%= item.quantity %>"
+            required
+          >
+        </div>
+
+        <div class="col-sm-4">
+          <label for="threshold-<%= item.id %>" class="form-label">
+            Low-stock threshold
+          </label>
+
+          <input
+            id="threshold-<%= item.id %>"
+            name="threshold"
+            type="number"
+            min="0"
+            max="9999999"
+            step="1"
+            class="form-control"
+            value="<%= item.low_stock_threshold %>"
+            required
+          >
+        </div>
+
+        <div class="col-sm-4">
+          <button type="submit" class="btn btn-brand w-100">
+            Save Stock
+          </button>
+        </div>
+      </div>
+    </form>
+  </section>
+<% }); %>
+
+<% if (items.length === 0) { %>
+  <p class="admin-empty">No stock records match your search.</p>
+<% } %>
+
+<%- include("partials/footer") %>

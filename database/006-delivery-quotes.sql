@@ -1,0 +1,11 @@
+BEGIN;
+
+ALTER TABLE orders
+  ADD COLUMN courier_name VARCHAR(60),
+  ADD COLUMN courier_service VARCHAR(120),
+  ADD COLUMN quote_version INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN quoted_at TIMESTAMPTZ,
+  ADD COLUMN quoted_by INTEGER REFERENCES users(id),
+  ADD COLUMN quote_accepted_at TIMESTAMPTZ;
+
+COMMIT;

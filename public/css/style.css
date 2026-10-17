@@ -1361,3 +1361,202 @@ button:focus-visible {
     padding: 1.5rem;
   }
 }
+/* =========================
+   PHASE 7 — CART
+========================= */
+
+.cart-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  margin-left: 0.25rem;
+  padding: 0 0.35rem;
+  border-radius: 50px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 0.7rem;
+}
+
+.cart-item {
+  margin-bottom: 1rem;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  background: var(--background-secondary);
+}
+
+.cart-item-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.cart-item-heading h2 {
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.cart-item-heading h2 a:hover {
+  color: var(--brand);
+}
+
+.cart-item-heading > strong {
+  flex-shrink: 0;
+}
+
+.cart-item-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.cart-update-form {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.cart-quantity {
+  width: 90px;
+  min-height: 48px;
+  border-color: var(--border);
+  background: var(--background);
+  color: var(--text);
+  color-scheme: dark;
+}
+
+.cart-quantity:focus {
+  border-color: var(--brand);
+  background: var(--background);
+  color: var(--text);
+  box-shadow: 0 0 0 3px rgba(217, 0, 0, 0.2);
+}
+
+.cart-remove {
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #ff9999;
+  font-size: 0.8rem;
+  text-decoration: underline;
+}
+
+.cart-warning {
+  margin-top: 1rem;
+  color: #eed687;
+  font-size: 0.85rem;
+}
+
+.cart-summary {
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--brand);
+  background: var(--background-secondary);
+}
+
+.cart-summary h2 {
+  margin-bottom: 1.5rem;
+  font-size: 1.1rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.cart-summary-lines > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.cart-summary-lines dt {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.cart-summary-lines dd {
+  margin-bottom: 0;
+  text-align: right;
+  font-size: 0.85rem;
+}
+
+.cart-summary p {
+  font-size: 0.8rem;
+}
+
+@media (max-width: 575.98px) {
+  .cart-item {
+    padding: 1rem;
+  }
+
+  .cart-item-heading {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+}
+/* =========================
+   PHASE 8 — CHECKOUT / ORDERS
+========================= */
+
+.checkout-form .form-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.checkout-form .form-control {
+  min-height: 48px;
+  border-color: var(--border);
+  border-radius: 3px;
+  background: var(--background);
+  color: var(--text);
+  color-scheme: dark;
+}
+
+.checkout-form .form-control:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(217, 0, 0, 0.2);
+}
+
+.checkout-form .btn {
+  margin-top: 0.5rem;
+}
+
+.order-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.5rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.order-line > strong {
+  flex-shrink: 0;
+}
+
+.order-number {
+  overflow-wrap: anywhere;
+  font-size: 0.95rem;
+}
+
+.account-panel address {
+  color: var(--muted);
+  line-height: 1.8;
+}
+
+@media (max-width: 575.98px) {
+  .order-line {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .checkout-form .btn {
+    width: 100%;
+  }
+}

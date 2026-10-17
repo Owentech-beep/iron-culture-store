@@ -1,0 +1,67 @@
+<%- include("partials/head") %>
+<%- include("partials/navbar") %>
+
+<main id="main-content" class="section-space">
+  <div class="container">
+    <div class="auth-panel">
+      <p class="eyebrow">YOUR ORDER</p>
+      <h1 class="section-title">Payment Status</h1>
+
+      <p class="order-number"><%= order.order_number %></p>
+
+      <% if (order.is_demo) { %>
+        <div class="demo-notice">
+          Development test order. No payment will be collected.
+        </div>
+      <% } %>
+
+      <dl class="cart-summary-lines">
+        <div>
+          <dt>Order status</dt>
+          <dd><%= order.status %></dd>
+        </div>
+
+        <div>
+          <dt>Payment status</dt>
+          <dd><%= order.payment_status %></dd>
+        </div>
+
+        <div>
+          <dt>Order total</dt>
+          <dd>
+            <%= order.total_cents === null
+              ? "Awaiting delivery quote"
+              : formatMoney(order.total_cents) %>
+          </dd>
+        </div>
+      </dl>
+
+      <% if (reasons.length > 0) { %>
+        <div class="notice-panel mb-4">
+          <h2 class="h6">Payment is unavailable</h2>
+
+          <ul class="mb-0 ps-3">
+            <% reasons.forEach((reason) => { %>
+              <li class="mb-2"><%= reason %></li>
+            <% }); %>
+          </ul>
+        </div>
+      <% } %>
+
+      <p class="text-muted-custom">
+        This page does not collect payment.
+        Stock has not been reserved.
+      </p>
+
+      <a
+        href="/orders/<%= order.id %>"
+        class="btn btn-outline-brand w-100"
+      >
+        Back to Order
+      </a>
+    </div>
+  </div>
+</main>
+
+<%- include("partials/footer") %>
+<%- include("partials/scripts") %>

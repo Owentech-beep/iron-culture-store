@@ -1,0 +1,73 @@
+<%- include("partials/header") %>
+
+<div class="admin-page-heading">
+  <div>
+    <p class="eyebrow">CUSTOMER ORDERS</p>
+    <h1 class="section-title mb-0">Orders</h1>
+  </div>
+</div>
+
+<p class="text-muted-custom">Showing the latest 50 orders.</p>
+
+<section class="admin-panel">
+  <div class="table-responsive">
+    <table class="table admin-table">
+      <thead>
+        <tr>
+          <th scope="col">Order</th>
+          <th scope="col">Customer</th>
+          <th scope="col">Date</th>
+          <th scope="col">Total</th>
+          <th scope="col">Payment</th>
+          <th scope="col">Action</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <% orders.forEach((order) => { %>
+          <tr>
+            <td>
+              <span class="admin-order-number">
+                <%= order.order_number %>
+              </span>
+
+              <% if (order.is_demo) { %>
+                <span class="demo-label d-inline-block mt-2 mb-0">
+                  Demo
+                </span>
+              <% } %>
+            </td>
+
+            <td><%= order.customer_name %></td>
+            <td><%= formatDate(order.created_at) %></td>
+
+            <td>
+              <%= order.total_cents === null
+                ? "Awaiting delivery quote"
+                : formatMoney(order.total_cents) %>
+            </td>
+
+            <td><%= order.payment_status %></td>
+
+            <td>
+              <a
+                href="/admin/orders/<%= order.id %>"
+                class="btn btn-outline-brand"
+              >
+                View
+              </a>
+            </td>
+          </tr>
+        <% }); %>
+
+        <% if (orders.length === 0) { %>
+          <tr>
+            <td colspan="6">No orders have been submitted.</td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<%- include("partials/footer") %>

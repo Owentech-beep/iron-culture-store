@@ -1,0 +1,186 @@
+<%- include("partials/header") %>
+
+<div class="admin-page-heading">
+  <div>
+    <p class="eyebrow">STORE OVERVIEW</p>
+    <h1 class="section-title mb-0">Dashboard</h1>
+  </div>
+
+  <span class="admin-status">Live database data</span>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <section class="admin-stat">
+      <h2>Paid Sales</h2>
+      <strong><%= formatMoney(dashboard.salesCents) %></strong>
+      <p>Demo orders excluded</p>
+    </section>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <section class="admin-stat">
+      <h2>Orders</h2>
+      <strong><%= dashboard.orders.total %></strong>
+      <p>
+        <%= dashboard.orders.demo %> demo ·
+        <%= dashboard.orders.pending %> pending
+      </p>
+    </section>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <section class="admin-stat">
+      <h2>Customers</h2>
+      <strong><%= dashboard.customers %></strong>
+      <p>Accounts with customer role</p>
+    </section>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <section class="admin-stat">
+      <h2>Products</h2>
+      <strong><%= dashboard.products.total %></strong>
+      <p>
+        <%= dashboard.products.active %> active ·
+        <%= dashboard.products.demo %> demo
+      </p>
+    </section>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <section class="admin-attention">
+      <div>
+        <h2>Delivery Quotes Required</h2>
+        <p>Pending orders waiting for a delivery charge</p>
+      </div>
+
+      <strong><%= dashboard.orders.awaiting_quote %></strong>
+    </section>
+  </div>
+
+  <div class="col-md-6">
+    <section class="admin-attention">
+      <div>
+        <h2>Low-stock Options</h2>
+        <p>Active variants at or below their stock threshold</p>
+      </div>
+
+      <strong><%= dashboard.lowStockCount %></strong>
+    </section>
+  </div>
+</div>
+
+<section class="admin-panel mb-4">
+  <div class="admin-panel-heading">
+    <h2>Recent Orders</h2>
+    <span>Latest 8</span>
+  </div>
+
+  <% if (dashboard.recentOrders.length === 0) { %>
+    <p class="admin-empty">No orders have been submitted.</p>
+  <% } else { %>
+    <div class="table-responsive">
+      <table class="table admin-table">
+        <thead>
+          <tr>
+            <th scope="col">Order</th>
+            <th scope="col">Customer</th>
+            <th scope="col">Date</th>
+            <th scope="col">Total</th>
+            <th scope="col">Payment</th>
+            <th scope="col">Order Status</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <% dashboard.recentOrders.forEach((order) => { %>
+            <tr>
+              <td>
+                <span class="admin-order-number">
+                  <%= order.order_number %>
+                </span>
+
+                <% if (order.is_demo) { %>
+                  <span class="demo-label d-inline-block mt-2 mb-0">
+                    Demo
+                  </span>
+                <% } %>
+              </td>
+
+              <td><%= order.customer_name %></td>
+              <td><%= formatDate(order.created_at) %></td>
+
+              <td>
+                <%= order.total_cents === null
+                  ? "Awaiting quote"
+                  : formatMoney(order.total_cents) %>
+              </td>
+
+              <td><%= order.payment_status %></td>
+              <td><%= order.status %></td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
+
+<section class="admin-panel">
+  <div class="admin-panel-heading">
+    <h2>Low Stock and Out of Stock</h2>
+    <span>Lowest 10 options</span>
+  </div>
+
+  <% if (dashboard.lowStockItems.length === 0) { %>
+    <p class="admin-empty">
+      No active product options are below their stock threshold.
+    </p>
+  <% } else { %>
+    <div class="table-responsive">
+      <table class="table admin-table">
+        <thead>
+          <tr>
+            <th scope="col">Product</th>
+            <th scope="col">Option</th>
+            <th scope="col">SKU</th>
+            <th scope="col">Stock</th>
+            <th scope="col">Threshold</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <% dashboard.lowStockItems.forEach((item) => { %>
+            <tr>
+              <td>
+                <%= item.product_name %>
+
+                <% if (item.is_demo) { %>
+                  <span class="demo-label d-inline-block mt-2 mb-0">
+                    Demo
+                  </span>
+                <% } %>
+              </td>
+
+              <td><%= item.flavour %></td>
+              <td class="admin-sku"><%= item.sku %></td>
+
+              <td>
+                <span class="<%= item.quantity === 0 ? 'admin-stock-empty' : '' %>">
+                  <%= item.quantity %>
+                </span>
+              </td>
+
+              <td><%= item.threshold %></td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
+
+<%- include("partials/footer") %>

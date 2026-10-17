@@ -35,6 +35,16 @@
           <a class="btn btn-brand" href="/shop">
             Browse the Shop
           </a>
+
+          <a href="/orders" class="btn btn-outline-brand">
+            My Orders
+          </a>
+
+          <% if (currentUser.role === "admin") { %>
+            <a href="/admin" class="btn btn-outline-brand">
+                Admin Dashboard
+            </a>
+            <% } %>
         </section>
       </div>
 
@@ -43,8 +53,8 @@
           <h2>Your Account</h2>
 
           <p class="text-muted-custom">
-            Saved addresses, order history and loyalty information
-            will appear here as those services become available.
+            View your submitted orders using My Orders.
+            Saved addresses and loyalty features are coming later.
           </p>
 
           <form action="/logout" method="POST">

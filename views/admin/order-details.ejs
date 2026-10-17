@@ -1,0 +1,355 @@
+<%- include("partials/header") %>
+
+<div class="admin-page-heading">
+  <div>
+    <p class="eyebrow">CUSTOMER ORDER</p>
+    <h1 class="section-title mb-0">Order Details</h1>
+  </div>
+
+  <a href="/admin/orders" class="btn btn-outline-brand">
+    Back to Orders
+  </a>
+</div>
+
+<p class="order-number"><%= order.order_number %></p>
+
+<% if (order.is_demo) { %>
+  <div class="demo-notice">
+    Development test order. Do not collect payment or dispatch goods.
+  </div>
+<% } %>
+
+<div class="row g-4">
+  <div class="col-xl-8">
+    <section class="admin-panel p-4 mb-4">
+      <h2 class="h5 mb-3">Ordered Items</h2>
+
+      <% order.items.forEach((item) => { %>
+        <div class="order-line">
+          <div>
+            <strong><%= item.product_name %></strong>
+
+            <p class="text-muted-custom mb-0">
+              <%= item.variant_name %>
+              · Quantity <%= item.quantity %>
+              · <%= formatMoney(item.unit_price_cents) %> each
+            </p>
+          </div>
+
+          <strong><%= formatMoney(item.line_total_cents) %></strong>
+        </div>
+      <% }); %>
+    </section>
+
+    <section class="admin-panel p-4">
+      <h2 class="h5 mb-3">Delivery Details</h2>
+
+      <% const address = order.shipping_address; %>
+
+      <address>
+        <%= address.firstName %> <%= address.lastName %><br>
+        <%= address.street %><br>
+        <%= address.suburb %>, <%= address.city %><br>
+        <%= address.province %>, <%= address.postalCode %><br>
+        South Africa
+      </address>
+
+      <p class="mb-0">
+        Delivery email: <%= address.email %><br>
+        Delivery phone: <%= address.phone %>
+      </p>
+    </section>
+  </div>
+
+  <div class="col-xl-4">
+    <section class="admin-panel p-4">
+      <h2 class="h5 mb-3">Order Summary</h2>
+
+      <p>
+        Account: <%= order.customer_name %><br>
+        <span class="text-muted-custom">
+          <%= order.customer_email %>
+        </span>
+      </p>
+
+      <p>Created: <%= formatDate(order.created_at) %></p>
+      <p>Order status: <strong><%= order.status %></strong></p>
+      <p>Payment: <strong><%= order.payment_status %></strong></p>
+
+      <hr>
+
+      <dl class="cart-summary-lines">
+        <div>
+          <dt>Subtotal</dt>
+          <dd><%= formatMoney(order.subtotal_cents) %></dd>
+        </div>
+
+        <div>
+          <dt>Discount</dt>
+          <dd><%= formatMoney(order.discount_cents) %></dd>
+        </div>
+
+        <div>
+          <dt>Delivery</dt>
+          <dd>
+            <% if (order.delivery_cents === null) { %>
+              Quote required
+            <% } else if (Number(order.delivery_cents) === 0) { %>
+              Free
+            <% } else { %>
+              <%= formatMoney(order.delivery_cents) %>
+            <% } %>
+          </dd>
+        </div>
+
+        <div>
+          <dt>Total</dt>
+          <dd>
+            <%= order.total_cents === null
+              ? "Not finalised"
+              : formatMoney(order.total_cents) %>
+          </dd>
+        </div>
+      </dl>
+
+      <% if (
+            order.status === "pending" &&
+            order.payment_status === "unpaid" &&
+            ["quote_required", "quoted"].includes(order.shipping_rate_status)
+          ) { %>
+
+            <hr>
+
+            <h2 class="h5 mt-4">Delivery Quote</h2>
+
+            <% if (order.shipping_rate_status === "quoted") { %>
+              <p class="text-muted-custom">
+                Current quote: <%= order.courier_name %>
+                — <%= order.courier_service %>
+              </p>
+
+              <p class="cart-warning">
+                <%= order.quote_accepted_at
+                  ? "The customer accepted this quote. Changing it will require new approval."
+                  : "Customer approval is still required." %>
+              </p>
+            <% } %>
+
+            <p class="text-muted-custom">
+              Enter the complete delivery charge the customer will pay,
+              including applicable fees. This does not book a shipment.
+            </p>
+
+            <form
+              action="/admin/orders/<%= order.id %>/delivery-quote"
+              method="POST"
+              class="admin-form"
+            >
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+              <input
+                type="hidden"
+                name="quoteVersion"
+                value="<%= order.quote_version %>"
+              >
+
+              <div class="mb-3">
+                <label for="courier" class="form-label">Courier</label>
+
+                <select id="courier" name="courier" class="form-select" required>
+                  <option value="">Choose a courier</option>
+
+                  <% ["The Courier Guy", "Aramex"].forEach((courier) => { %>
+                    <option
+                      value="<%= courier %>"
+                      <%= order.courier_name === courier ? "selected" : "" %>
+                    >
+                      <%= courier %>
+                    </option>
+                  <% }); %>
+                </select>
+              </div>
+
+              <div class="mb-3">
+                <label for="service" class="form-label">Courier service</label>
+
+                <input
+                  id="service"
+                  name="service"
+                  class="form-control"
+                  maxlength="120"
+                  placeholder="Service name shown in the courier quote"
+                  value="<%= order.courier_service || '' %>"
+                  required
+                >
+              </div>
+
+              <div class="mb-3">
+                <label for="deliveryAmount" class="form-label">
+                  Delivery charge (R)
+                </label>
+
+                <input
+                  id="deliveryAmount"
+                  name="deliveryAmount"
+                  type="number"
+                  min="0"
+                  max="99999.99"
+                  step="0.01"
+                  class="form-control"
+                  value="<%= order.delivery_cents === null
+                    ? ''
+                    : (Number(order.delivery_cents) / 100).toFixed(2) %>"
+                  required
+                >
+              </div>
+
+              <button type="submit" class="btn btn-brand w-100">
+                Save Delivery Quote
+              </button>
+            </form>
+
+          <% } else if (order.shipping_rate_status === "free") { %>
+
+            <div class="notice-panel">
+              This order qualifies for free delivery.
+              No customer delivery charge is needed.
+            </div>
+
+          <% } %>
+    </section>
+  </div>
+</div>
+
+<section class="admin-panel p-4 mt-4">
+  <h2 class="h5 mb-3">Update Order Status</h2>
+
+  <% if (allowedStatuses.length === 0) { %>
+    <p class="text-muted-custom mb-0">
+      No status changes are available.
+      Fulfilment requires a non-demo order with confirmed payment
+      and completed stock deduction.
+      Delivered and cancelled orders cannot be changed here.
+    </p>
+  <% } else { %>
+
+    <form
+      action="/admin/orders/<%= order.id %>/status"
+      method="POST"
+      class="admin-form"
+    >
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+      <input
+        type="hidden"
+        name="expectedStatus"
+        value="<%= order.status %>"
+      >
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label for="nextStatus" class="form-label">Next status</label>
+
+          <select
+            id="nextStatus"
+            name="nextStatus"
+            class="form-select"
+            required
+          >
+            <option value="">Choose a status</option>
+
+            <% allowedStatuses.forEach((status) => { %>
+              <option value="<%= status %>">
+                <%= status.charAt(0).toUpperCase() + status.slice(1) %>
+              </option>
+            <% }); %>
+          </select>
+        </div>
+
+        <% if (allowedStatuses.includes("shipped")) { %>
+          <div class="col-md-6">
+            <label for="trackingCourier" class="form-label">
+              Booked courier
+            </label>
+
+            <select
+              id="trackingCourier"
+              name="courier"
+              class="form-select"
+              required
+            >
+              <option value="">Choose a courier</option>
+              <option value="The Courier Guy">The Courier Guy</option>
+              <option value="Aramex">Aramex</option>
+            </select>
+          </div>
+
+          <div class="col-12">
+            <label for="trackingNumber" class="form-label">
+              Tracking number
+            </label>
+
+            <input
+              id="trackingNumber"
+              name="trackingNumber"
+              class="form-control"
+              maxlength="120"
+              required
+            >
+          </div>
+        <% } %>
+
+        <div class="col-12">
+          <label for="statusNote" class="form-label">
+            Internal reason / update note
+          </label>
+
+          <textarea
+            id="statusNote"
+            name="note"
+            class="form-control"
+            rows="3"
+            maxlength="500"
+            required
+          ></textarea>
+        </div>
+
+        <div class="col-12">
+          <button type="submit" class="btn btn-brand">
+            Update Status
+          </button>
+        </div>
+      </div>
+    </form>
+
+  <% } %>
+</section>
+
+<section class="admin-panel p-4 mt-4">
+  <h2 class="h5 mb-3">Status History</h2>
+
+  <% if (history.length === 0) { %>
+    <p class="text-muted-custom mb-0">
+      No status changes have been recorded.
+    </p>
+  <% } else { %>
+    <% history.forEach((entry) => { %>
+      <div class="order-line">
+        <div>
+          <strong>
+            <%= entry.previous_status %> → <%= entry.new_status %>
+          </strong>
+
+          <p class="text-muted-custom mb-1">
+            <%= entry.admin_name %>
+            · <%= formatDate(entry.created_at) %>
+          </p>
+
+          <p class="mb-0 preserve-lines"><%= entry.note %></p>
+        </div>
+      </div>
+    <% }); %>
+  <% } %>
+</section>
+
+<%- include("partials/footer") %>

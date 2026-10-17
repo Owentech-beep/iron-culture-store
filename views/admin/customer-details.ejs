@@ -1,0 +1,90 @@
+<%- include("partials/header") %>
+
+<div class="admin-page-heading">
+  <div>
+    <p class="eyebrow">CUSTOMER ACCOUNT</p>
+    <h1 class="section-title mb-0"><%= customer.name %></h1>
+  </div>
+
+  <a href="/admin/customers" class="btn btn-outline-brand">
+    Back to Customers
+  </a>
+</div>
+
+<section class="admin-panel p-4 mb-4">
+  <h2 class="h5">Account Details</h2>
+
+  <p>Email: <%= customer.email %></p>
+  <p>Registered: <%= formatDate(customer.created_at) %></p>
+  <p class="mb-0">
+    Status: <%= customer.is_active ? "Active" : "Inactive" %>
+  </p>
+</section>
+
+<section class="admin-panel">
+  <div class="admin-panel-heading">
+    <h2>Order History</h2>
+    <span>Latest 50 orders</span>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table admin-table">
+      <thead>
+        <tr>
+          <th scope="col">Order</th>
+          <th scope="col">Date</th>
+          <th scope="col">Total</th>
+          <th scope="col">Status</th>
+          <th scope="col">Payment</th>
+          <th scope="col">Action</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <% customer.orders.forEach((order) => { %>
+          <tr>
+            <td>
+              <span class="admin-order-number">
+                <%= order.order_number %>
+              </span>
+
+              <% if (order.is_demo) { %>
+                <span class="demo-label d-inline-block mt-2 mb-0">
+                  Demo
+                </span>
+              <% } %>
+            </td>
+
+            <td><%= formatDate(order.created_at) %></td>
+
+            <td>
+              <%= order.total_cents === null
+                ? "Not finalised"
+                : formatMoney(order.total_cents) %>
+            </td>
+
+            <td><%= order.status %></td>
+            <td><%= order.payment_status %></td>
+
+            <td>
+              <a
+                href="/admin/orders/<%= order.id %>"
+                class="btn btn-outline-brand"
+              >
+                View Order
+              </a>
+            </td>
+          </tr>
+        <% }); %>
+
+        <% if (customer.orders.length === 0) { %>
+          <tr>
+            <td colspan="6">This customer has no orders yet.</td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<%- include("partials/footer") %>

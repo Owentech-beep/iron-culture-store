@@ -1,0 +1,30 @@
+BEGIN;
+
+CREATE TABLE carts (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
+  user_id INTEGER NOT NULL UNIQUE
+    REFERENCES users(id) ON DELETE CASCADE,
+
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE cart_items (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
+  cart_id INTEGER NOT NULL
+    REFERENCES carts(id) ON DELETE CASCADE,
+
+  variant_id INTEGER NOT NULL
+    REFERENCES product_variants(id),
+
+  quantity INTEGER NOT NULL CHECK (quantity BETWEEN 1 AND 99),
+
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+  UNIQUE (cart_id, variant_id)
+);
+
+CREATE INDEX cart_items_variant_idx ON cart_items(variant_id);
+
+COMMIT;
