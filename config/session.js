@@ -8,6 +8,11 @@ const PgStore = connectPgSimple(session);
 const isProduction = process.env.NODE_ENV === "production";
 
 const secret = process.env.SESSION_SECRET;
+console.log("Session configuration:", {
+  secretPresent: Boolean(secret),
+  secretLength: secret?.length ?? 0,
+  nodeEnv: process.env.NODE_ENV,
+});
 
 if (!secret || secret.length < 64) {
   throw new Error(
