@@ -8,3 +8,4 @@ node_modules/
 *.backup
 .DS_Store
 coverage/
+/catalogue-export.json

@@ -1,6 +1,8 @@
 import { pool } from "../config/database.js";
 
-const includeDemo = process.env.NODE_ENV !== "production";
+const includeDemo =
+  process.env.NODE_ENV !== "production" ||
+  process.env.SHOW_DEMO_PRODUCTS === "true";
 
 function cartError(message) {
   const error = new Error(message);

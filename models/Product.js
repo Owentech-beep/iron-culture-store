@@ -1,7 +1,9 @@
 import { pool } from "../config/database.js";
 
 // Demo records are hidden when NODE_ENV=production.
-const includeDemo = process.env.NODE_ENV !== "production";
+const includeDemo =
+  process.env.NODE_ENV !== "production" ||
+  process.env.SHOW_DEMO_PRODUCTS === "true";
 
 function mapProduct(row) {
   return {
