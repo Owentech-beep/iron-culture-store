@@ -125,7 +125,17 @@ async function startServer() {
     process.on("SIGINT", () => shutdown("SIGINT"));
     process.on("SIGTERM", () => shutdown("SIGTERM"));
   } catch (error) {
-    console.error("Application startup failed:", error.message);
+    console.error("Application startup failed:", {
+      name: error.name,
+      message: error.message,
+      code: error.code,
+      errors: error.errors?.map((item) => ({
+        message: item.message,
+        code: item.code,
+        address: item.address,
+        port: item.port,
+      })),
+    });
     await pool.end();
     process.exit(1);
   }
