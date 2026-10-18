@@ -1,20 +1,13 @@
 import sharp from "sharp";
-import { randomUUID } from "node:crypto";
-import { mkdir, writeFile, unlink } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
-import path from "node:path";
 
 import { pool } from "../config/database.js";
-
-const imageDirectory = fileURLToPath(
-  new URL("../public/images/products/", import.meta.url)
-);
+import {
+  uploadProductImage,
+  removeProductImage,
+} from "../services/productImageStorage.js";
 
 export async function uploadMainImage(req, res) {
-  if (
-    !/^[1-9]\d*$/.test(req.params.id) ||
-    Number(req.params.id) > 2147483647
-  ) {
+  if (!/^[1-9]\d*$/.test(req.params.id) || Number(req.params.id) > 2147483647) {
     return res.status(400).json({ error: "Invalid product." });
   }
 
@@ -22,11 +15,15 @@ export async function uploadMainImage(req, res) {
 
   const productResult = await pool.query(
     "SELECT id FROM products WHERE id = $1",
-    [productId]
+    [productId],
   );
 
   if (!productResult.rows[0]) {
     return res.status(404).json({ error: "Product not found." });
+  }
+
+  if (!req.file?.buffer) {
+    return res.status(400).json({ error: "Choose an image to upload." });
   }
 
   let output;
@@ -60,16 +57,27 @@ export async function uploadMainImage(req, res) {
       .toBuffer();
   } catch {
     return res.status(400).json({
-      error: "The image could not be processed. Use a valid image of up to 25 megapixels.",
+      error:
+        "The image could not be processed. Use a valid image of up to 25 megapixels.",
     });
   }
 
-  const filename = `${randomUUID()}.webp`;
-  const imageUrl = `/images/products/${filename}`;
-  const destination = path.join(imageDirectory, filename);
+  let uploaded;
 
-  await mkdir(imageDirectory, { recursive: true });
-  await writeFile(destination, output, { flag: "wx" });
+  try {
+    uploaded = await uploadProductImage(output);
+  } catch (error) {
+    console.error("Cloudinary product image upload failed:", {
+      name: error?.name,
+      message: error?.message,
+      httpCode: error?.http_code,
+      code: error?.code,
+    });
+
+    return res.status(502).json({
+      error: "Image storage is unavailable. Please try again shortly.",
+    });
+  }
 
   try {
     await pool.query(
@@ -77,16 +85,19 @@ export async function uploadMainImage(req, res) {
        VALUES ($1, $2, 0)
        ON CONFLICT (product_id, position)
        DO UPDATE SET image_url = EXCLUDED.image_url`,
-      [productId, imageUrl]
+      [productId, uploaded.imageUrl],
     );
   } catch (error) {
-    // Remove the new file if its database record could not be saved.
-    await unlink(destination).catch(() => {});
+    // Remove the new upload if its database record could not be saved.
+    await removeProductImage(uploaded.publicId).catch(() => {
+      console.error("Could not clean up an unsuccessful image upload.");
+    });
+
     throw error;
   }
 
   return res.status(201).json({
     message: "Main image uploaded.",
-    imageUrl,
+    imageUrl: uploaded.imageUrl,
   });
 }

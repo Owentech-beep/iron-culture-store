@@ -11,7 +11,7 @@
 
       <% if (order.is_demo) { %>
         <div class="demo-notice">
-          Development test order. No payment will be collected.
+         Development test order. Sandbox payments do not collect real money.
         </div>
       <% } %>
 
@@ -48,10 +48,45 @@
         </div>
       <% } %>
 
-      <p class="text-muted-custom">
-        This page does not collect payment.
-        Stock has not been reserved.
-      </p>
+     <% if (paymentAttempt) { %>
+        <div class="notice-panel mb-3">
+          <p class="mb-1">
+            Payment attempt:
+            <strong><%= paymentAttempt.status %></strong>
+          </p>
+
+          <% if (paymentAttempt.has_reservation) { %>
+            <p class="mb-0">
+              Stock is reserved while this payment attempt is resolved.
+            </p>
+          <% } %>
+        </div>
+      <% } %>
+
+      <% if (canStartSandbox) { %>
+        <div class="demo-notice">
+          Sandbox testing only. No real money will be collected.
+        </div>
+
+        <form
+          action="/orders/<%= order.id %>/payment/sandbox"
+          method="POST"
+          class="mb-3"
+        >
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+          <button type="submit" class="btn btn-brand w-100">
+            Start Sandbox Payment
+          </button>
+        </form>
+      <% } %>
+
+      <a
+        href="/orders/<%= order.id %>/payment"
+        class="btn btn-outline-brand w-100 mb-3"
+      >
+        Refresh Payment Status
+      </a>
 
       <a
         href="/orders/<%= order.id %>"

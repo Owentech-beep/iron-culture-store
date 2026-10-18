@@ -1,32 +1,59 @@
+<%
+  const hasDiscount =
+    product.salePrice !== null &&
+    product.salePrice !== undefined &&
+    product.price > 0 &&
+    product.salePrice < product.price;
+
+  const discountPercent = hasDiscount
+    ? Math.floor(
+        ((product.price - product.salePrice) / product.price) * 100
+      )
+    : 0;
+%>
 <article class="product-card">
-  <div class="product-image-wrap">
+  <a
+    href="/product/<%= product.slug %>"
+    class="product-image-wrap"
+    aria-label="View <%= product.name %>"
+  >
+    <% if (hasDiscount) { %>
+    <span class="product-sale-badge">
+      <%= discountPercent >= 1 ? `${discountPercent}% OFF` : "SALE" %>
+    </span>
+  <% } %>
     <% if (product.imageUrl) { %>
       <img
         src="<%= product.imageUrl %>"
-        alt="<%= product.name %>"
+        alt=""
         loading="lazy"
+        decoding="async"
         width="400"
         height="400"
       >
     <% } else { %>
-      <span class="product-image-placeholder">Image coming soon</span>
+      <span class="product-image-placeholder">
+        Image coming soon
+      </span>
     <% } %>
-  </div>
+  </a>
 
   <div class="product-card-body">
     <% if (product.isDemo) { %>
-    <span class="demo-label">Demo — not for sale</span>
+      <span class="demo-label">Demo — not for sale</span>
     <% } %>
+
     <p class="product-brand"><%= product.brandName %></p>
 
     <h2 class="product-name">
-        <a href="/product/<%= product.slug %>">
-            <%= product.name %>
-        </a>
+      <a href="/product/<%= product.slug %>">
+        <%= product.name %>
+      </a>
     </h2>
 
     <p class="product-rating">
       <% if (product.reviewCount > 0) { %>
+        <span class="product-rating-star" aria-hidden="true">★</span>
         <%= Number(product.rating).toFixed(1) %>/5
         <span>(<%= product.reviewCount %> reviews)</span>
       <% } else { %>
@@ -49,14 +76,19 @@
     </div>
 
     <p class="product-stock">
+      <span
+        class="product-stock-dot <%= product.stock > 0 ? 'is-available' : '' %>"
+        aria-hidden="true"
+      ></span>
       <%= product.stock > 0 ? "In stock" : "Out of stock" %>
     </p>
 
-      <a
-        href="/product/<%= product.slug %>"
-        class="btn btn-outline-brand product-view-button"
-        >
-        View Product
-     </a>
+    <a
+      href="/product/<%= product.slug %>"
+      class="btn btn-brand product-view-button"
+    >
+      View Product
+      <span aria-hidden="true">→</span>
+    </a>
   </div>
 </article>

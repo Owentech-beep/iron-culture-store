@@ -1,7 +1,7 @@
 <%- include("partials/head") %>
 <%- include("partials/navbar") %>
 
-<main id="main-content" class="section-space">
+<main id="main-content" class="section-space order-detail-page">
   <div class="container">
     <p class="eyebrow">ORDER DETAILS</p>
     <h1 class="section-title">Your Order</h1>
@@ -29,7 +29,9 @@
                 </p>
               </div>
 
-              <strong><%= formatMoney(item.line_total_cents) %></strong>
+              <strong>
+                <%= formatMoney(item.line_total_cents) %>
+              </strong>
             </div>
           <% }); %>
 
@@ -83,6 +85,13 @@
               <dd><%= formatMoney(order.subtotal_cents) %></dd>
             </div>
 
+            <% if (Number(order.discount_cents) > 0) { %>
+              <div>
+                <dt>Discount</dt>
+                <dd>−<%= formatMoney(order.discount_cents) %></dd>
+              </div>
+            <% } %>
+
             <div>
               <dt>Delivery</dt>
               <dd>
@@ -106,7 +115,10 @@
             </div>
           </dl>
 
-          <% if (order.shipping_rate_status === "quote_required") { %>
+          <% if (
+            order.shipping_rate_status === "quote_required" &&
+            order.status !== "cancelled"
+          ) { %>
             <p class="text-muted-custom">
               Your delivery quote request is saved.
               The final delivery charge still needs to be provided
@@ -114,69 +126,67 @@
             </p>
           <% } %>
 
-            <% if (order.shipping_rate_status === "quoted") { %>
-              <div class="notice-panel mb-3">
-                <h2 class="h6">Delivery Quote</h2>
+          <% if (order.shipping_rate_status === "quoted") { %>
+            <div class="notice-panel mb-3">
+              <h2 class="h6">Delivery Quote</h2>
 
+              <p>
+                <%= order.courier_name %>
+                — <%= order.courier_service %>
+              </p>
+
+              <p>
+                Delivery:
+                <strong><%= formatMoney(order.delivery_cents) %></strong>
+              </p>
+
+              <p>
+                Order total including delivery:
+                <strong><%= formatMoney(order.total_cents) %></strong>
+              </p>
+
+              <% if (order.quote_accepted_at) { %>
+                <p class="mb-0" role="status">
+                  You accepted this delivery quote.
+                  Acceptance does not itself take payment or reserve stock.
+                </p>
+              <% } else if (
+                order.status === "pending" &&
+                order.payment_status === "unpaid"
+              ) { %>
                 <p>
-                  <%= order.courier_name %>
-                  — <%= order.courier_service %>
+                  Review the delivery charge and order total before accepting.
+                  No payment will be taken and stock will not be reserved.
                 </p>
 
-                <p>
-                  Delivery:
-                  <strong><%= formatMoney(order.delivery_cents) %></strong>
-                </p>
-
-                <p>
-                  Order total including delivery:
-                  <strong><%= formatMoney(order.total_cents) %></strong>
-                </p>
-
-                <% if (order.quote_accepted_at) { %>
-                  <p class="mb-0" role="status">
-                    You accepted this delivery quote.
-                    Acceptance does not itself take payment or reserve stock.
-                  </p>
-
-                <% } else if (
-                  order.status === "pending" &&
-                  order.payment_status === "unpaid"
-                ) { %>
-
-                  <p>
-                    Review the delivery charge and order total before accepting.
-                    No payment will be taken and stock will not be reserved.
-                  </p>
-
-                  <form
-                    action="/orders/<%= order.id %>/accept-delivery-quote"
-                    method="POST"
+                <form
+                  action="/orders/<%= order.id %>/accept-delivery-quote"
+                  method="POST"
+                >
+                  <input
+                    type="hidden"
+                    name="_csrf"
+                    value="<%= csrfToken %>"
                   >
-                    <input
-                      type="hidden"
-                      name="_csrf"
-                      value="<%= csrfToken %>"
-                    >
 
-                    <input
-                      type="hidden"
-                      name="quoteVersion"
-                      value="<%= order.quote_version %>"
-                    >
+                  <input
+                    type="hidden"
+                    name="quoteVersion"
+                    value="<%= order.quote_version %>"
+                  >
 
-                    <button type="submit" class="btn btn-brand w-100">
-                      Accept Delivery Quote
-                    </button>
-                  </form>
+                  <button type="submit" class="btn btn-brand w-100">
+                    Accept Delivery Quote
+                  </button>
+                </form>
+              <% } else { %>
+                <p class="mb-0">
+                  This order is no longer eligible for quote acceptance.
+                </p>
+              <% } %>
+            </div>
+          <% } %>
 
-                <% } else { %>
-                  <p class="mb-0">
-                    This order is no longer eligible for quote acceptance.
-                  </p>
-                <% } %>
-              </div>
-            <% } %>
           <% if (
             order.status === "pending" &&
             order.payment_status === "unpaid"
@@ -186,27 +196,18 @@
             </p>
           <% } %>
 
-          <a
-            href="/orders/<%= order.id %>/payment"
-            class="btn btn-outline-brand w-100 mb-3"
-          >
-            View Payment Status
-          </a>
-
-          <a href="/orders" class="btn btn-outline-brand w-100">
-            My Orders
-          </a>
-
-          <a
-            href="/orders/<%= order.id %>/payment"
-            class="btn btn-outline-brand w-100 mb-3"
+          <div class="order-detail-actions">
+            <a
+              href="/orders/<%= order.id %>/payment"
+              class="btn btn-brand w-100"
             >
-            View Payment Status
+              View Payment Status
             </a>
 
             <a href="/orders" class="btn btn-outline-brand w-100">
-            My Orders
+              My Orders
             </a>
+          </div>
         </section>
       </div>
     </div>

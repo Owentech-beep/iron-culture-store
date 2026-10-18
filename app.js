@@ -18,6 +18,7 @@ import checkoutRoutes from "./routes/checkoutRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import payfastNotificationRoutes from "./routes/payfastNotificationRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,6 +26,11 @@ const __dirname = path.dirname(__filename);
 const app = express();
 if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);
+} else if (
+  process.env.NODE_ENV === "development" &&
+  process.env.PAYFAST_MODE?.trim() === "sandbox"
+) {
+  app.set("trust proxy", "loopback");
 }
 const port = Number(process.env.PORT || 3000);
 
@@ -32,6 +38,8 @@ app.disable("x-powered-by");
 
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
+
+app.use("/payments/payfast", payfastNotificationRoutes);
 
 app.use(express.urlencoded({ extended: false, limit: "20kb" }));
 app.use(express.json({ limit: "20kb" }));

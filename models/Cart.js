@@ -32,7 +32,7 @@ export async function getCart(userId, db = pool) {
        p.name,
        p.slug,
        p.is_demo,
-       COALESCE(i.quantity, 0) AS stock,
+       COALESCE(i.quantity - i.reserved_quantity, 0) AS stock,
 
        (
          p.is_active
@@ -119,7 +119,7 @@ async function withLockedCart(userId, action) {
 async function checkVariant(client, variantId, quantity) {
   const { rows } = await client.query(
     `SELECT
-       COALESCE(i.quantity, 0) AS stock,
+       COALESCE(i.quantity - i.reserved_quantity, 0) AS stock,
        p.is_active AS product_active,
        v.is_active AS variant_active,
        p.is_demo

@@ -6,6 +6,14 @@ import {
   changeAdminOrderStatus,
   getOrderStatusHistory,
 } from "../models/AdminOrder.js";
+import {
+  listRecoverableSandboxAttempts,
+  closeAbandonedSandboxAttempt,
+} from "../models/SandboxRecovery.js";
+import {
+  listPaymentReconciliationAlerts,
+  resolveSuccessfulSandboxAlert,
+} from "../models/PaymentReconciliation.js";
 
 function formatMoney(cents) {
   return new Intl.NumberFormat("en-ZA", {
@@ -43,6 +51,9 @@ export async function showAdminOrder(req, res) {
   const order = validId ? await findAdminOrder(Number(req.params.id)) : null;
 
   if (!order) {
+    const reconciliationAlerts = await listPaymentReconciliationAlerts(
+      order.id,
+    );
     return res.status(404).render("error", {
       pageTitle: "Order Not Found | Iron Culture",
       metaDescription: "This order could not be found.",
@@ -53,6 +64,9 @@ export async function showAdminOrder(req, res) {
   }
   const history = await getOrderStatusHistory(order.id);
   const allowedStatuses = availableOrderStatuses(order);
+  const recoverableAttempts = await listRecoverableSandboxAttempts(order.id);
+  const reconciliationAlerts =
+  await listPaymentReconciliationAlerts(order.id);
 
   res.render("admin/order-details", {
     pageTitle: "Order Details | Iron Culture Admin",
@@ -63,6 +77,8 @@ export async function showAdminOrder(req, res) {
     formatDate,
     history,
     allowedStatuses,
+    recoverableAttempts,
+    reconciliationAlerts,
   });
 }
 
@@ -158,10 +174,7 @@ export async function submitOrderStatus(req, res) {
   const courier = text(req.body.courier);
   const trackingNumber = text(req.body.trackingNumber);
 
-  if (
-    !/^[1-9]\d*$/.test(rawId) ||
-    Number(rawId) > 2147483647
-  ) {
+  if (!/^[1-9]\d*$/.test(rawId) || Number(rawId) > 2147483647) {
     return reject("Invalid order.");
   }
 
@@ -169,7 +182,9 @@ export async function submitOrderStatus(req, res) {
     return reject("Enter a brief reason or update note of 1–500 characters.");
   }
 
-  if (!["cancelled", "processing", "shipped", "delivered"].includes(nextStatus)) {
+  if (
+    !["cancelled", "processing", "shipped", "delivered"].includes(nextStatus)
+  ) {
     return reject("Choose a valid next status.");
   }
 
@@ -196,4 +211,104 @@ export async function submitOrderStatus(req, res) {
 
     throw error;
   }
+}
+
+export async function submitSandboxRecovery(req, res) {
+  function reject(message, status = 400) {
+    return res.status(status).render("error", {
+      pageTitle: "Sandbox Recovery | Iron Culture",
+      metaDescription: "Sandbox payment recovery needs attention.",
+      activePage: "",
+      statusCode: status,
+      message,
+    });
+  }
+
+  const validId = (value) =>
+    typeof value === "string" &&
+    /^[1-9]\d*$/.test(value) &&
+    Number(value) <= 2147483647;
+
+  if (!validId(req.params.id) || !validId(req.params.paymentId)) {
+    return reject("Invalid order or payment.");
+  }
+
+  const note = typeof req.body.note === "string" ? req.body.note.trim() : "";
+
+  if (req.body.confirmChecked !== "yes") {
+    return reject(
+      "Confirm that you checked the exact payment reference in PayFast sandbox.",
+    );
+  }
+
+  if (note.length < 10 || note.length > 300) {
+    return reject("Enter a recovery note of 10–300 characters.");
+  }
+
+  try {
+    await closeAbandonedSandboxAttempt({
+      orderId: Number(req.params.id),
+      paymentId: Number(req.params.paymentId),
+      adminId: req.user.id,
+      note,
+    });
+  } catch (error) {
+    if (error.status === 409) {
+      return reject(error.publicMessage, 409);
+    }
+
+    throw error;
+  }
+
+  return res.redirect(303, `/admin/orders/${req.params.id}`);
+}
+
+export async function submitReconciliationResolution(req, res) {
+  function reject(message, status = 400) {
+    return res.status(status).render("error", {
+      pageTitle: "Payment Review | Iron Culture",
+      metaDescription: "Payment reconciliation needs attention.",
+      activePage: "",
+      statusCode: status,
+      message,
+    });
+  }
+
+  const validNumber = (value) =>
+    typeof value === "string" &&
+    /^[1-9]\d*$/.test(value) &&
+    Number(value) <= 2147483647;
+
+  if (
+    !validNumber(req.params.id) ||
+    !validNumber(req.params.alertId) ||
+    !validNumber(req.body.occurrenceCount)
+  ) {
+    return reject("Invalid order or alert. Refresh the page.");
+  }
+
+  const note =
+    typeof req.body.note === "string" ? req.body.note.trim() : "";
+
+  if (note.length < 10 || note.length > 300) {
+    return reject("Enter a resolution note of 10–300 characters.");
+  }
+
+  try {
+    await resolveSuccessfulSandboxAlert({
+      orderId: Number(req.params.id),
+      alertId: Number(req.params.alertId),
+      adminId: req.user.id,
+      expectedOccurrenceCount: Number(req.body.occurrenceCount),
+      note,
+    });
+  } catch (error) {
+    if (error.status === 409) {
+      return reject(error.publicMessage, 409);
+    }
+
+    throw error;
+  }
+
+  return res.redirect(303, `/admin/orders/${req.params.id}`);
 }

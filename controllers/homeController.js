@@ -2,14 +2,17 @@ import {
   getCategories,
   getBrands,
   getFeaturedProducts,
+  getDealProducts,
 } from "../models/Product.js";
 
 export async function getHome(req, res) {
-  const [categoryRows, brands, featuredProducts] = await Promise.all([
-    getCategories(),
-    getBrands(),
-    getFeaturedProducts(),
-  ]);
+  const [categoryRows, brands, featuredProducts, dealProducts] =
+    await Promise.all([
+      getCategories(),
+      getBrands(),
+      getFeaturedProducts(),
+      getDealProducts(),
+    ]);
 
   const categories = categoryRows.map((category, index) => ({
     ...category,
@@ -31,6 +34,7 @@ export async function getHome(req, res) {
     categories,
     brands,
     featuredProducts,
+    dealProducts,
     formatMoney,
   });
 }

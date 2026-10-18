@@ -1,0 +1,48 @@
+<%- include("partials/head") %>
+<%- include("partials/navbar") %>
+
+<main id="main-content" class="section-space">
+  <div class="container">
+    <section class="auth-panel">
+      <p class="eyebrow">TEST PAYMENT</p>
+      <h1 class="section-title">PayFast Sandbox</h1>
+
+      <div class="demo-notice">
+        This is a sandbox transaction. No real money will be collected.
+      </div>
+
+      <p class="text-muted-custom">
+        Stock has been reserved for this test order.
+        Continue to PayFast to complete the sandbox payment.
+      </p>
+
+      <form action="<%= checkout.action %>" method="POST">
+        <% Object.entries(checkout.fields).forEach(([name, value]) => { %>
+          <input
+            type="hidden"
+            name="<%= name %>"
+            value="<%= value %>"
+          >
+        <% }); %>
+
+        <button type="submit" class="btn btn-brand w-100">
+          Continue to PayFast Sandbox
+        </button>
+      </form>
+
+      <a
+        href="/orders/<%= orderId %>/payment"
+        class="btn btn-outline-brand w-100 mt-3"
+      >
+        Back to Payment Status
+      </a>
+
+      <p class="text-muted-custom mt-3 mb-0">
+        Going back does not cancel the payment attempt or release stock.
+      </p>
+    </section>
+  </div>
+</main>
+
+<%- include("partials/footer") %>
+<%- include("partials/scripts") %>

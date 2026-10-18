@@ -22,6 +22,8 @@ import {
   showAdminOrder,
   submitDeliveryQuote,
   submitOrderStatus,
+  submitSandboxRecovery,
+  submitReconciliationResolution,
 } from "../controllers/adminOrderController.js";
 import {
   showCustomers,
@@ -62,5 +64,12 @@ router.get("/customers", showCustomers);
 router.get("/customers/:id", showCustomer);
 router.post("/orders/:id/delivery-quote", submitDeliveryQuote);
 router.post("/orders/:id/status", submitOrderStatus);
-
+router.post(
+  "/orders/:id/payments/:paymentId/close-sandbox",
+  submitSandboxRecovery
+);
+router.post(
+  "/orders/:id/reconciliation/:alertId/resolve",
+  submitReconciliationResolution
+);
 export default router;

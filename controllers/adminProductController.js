@@ -8,6 +8,7 @@ import {
   listAdminInventory,
   updateAdminStock,
 } from "../models/AdminProduct.js";
+import { isAllowedProductImageUrl } from "../services/productImageStorage.js";
 
 function text(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -20,9 +21,7 @@ function positiveId(value) {
 
   const number = Number(raw);
 
-  return Number.isSafeInteger(number) && number <= 2147483647
-    ? number
-    : null;
+  return Number.isSafeInteger(number) && number <= 2147483647 ? number : null;
 }
 
 function stockNumber(value) {
@@ -70,12 +69,9 @@ function readProduct(body) {
     errors.push("Product name must contain 2–180 characters.");
   }
 
-  if (
-    data.slug.length > 160 ||
-    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(data.slug)
-  ) {
+  if (data.slug.length > 160 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(data.slug)) {
     errors.push(
-      "Use a URL slug of up to 160 lowercase letters, numbers and single hyphens."
+      "Use a URL slug of up to 160 lowercase letters, numbers and single hyphens.",
     );
   }
 
@@ -84,9 +80,7 @@ function readProduct(body) {
   }
 
   const regularCents = priceCents(data.price);
-  const saleCents = data.sale_price
-    ? priceCents(data.sale_price)
-    : null;
+  const saleCents = data.sale_price ? priceCents(data.sale_price) : null;
 
   if (regularCents === null || regularCents <= 0) {
     errors.push("Enter a price greater than zero with up to two decimals.");
@@ -94,14 +88,14 @@ function readProduct(body) {
 
   if (
     data.sale_price &&
-    (
-      saleCents === null ||
+    (saleCents === null ||
       saleCents <= 0 ||
       regularCents === null ||
-      saleCents >= regularCents
-    )
+      saleCents >= regularCents)
   ) {
-    errors.push("Sale price must be greater than zero and below the regular price.");
+    errors.push(
+      "Sale price must be greater than zero and below the regular price.",
+    );
   }
 
   for (const key of [
@@ -111,18 +105,24 @@ function readProduct(body) {
     "allergens",
   ]) {
     if (data[key].length > 5000) {
-      errors.push(`${key.replaceAll("_", " ")} must be under 5,000 characters.`);
+      errors.push(
+        `${key.replaceAll("_", " ")} must be under 5,000 characters.`,
+      );
     }
   }
 
   if (
     data.image_url &&
-    (
-      data.image_url.length > 300 ||
-      !/^\/images\/[a-zA-Z0-9/_-]+\.(jpg|jpeg|png|webp|avif)$/i.test(data.image_url)
-    )
+    (data.image_url.length > 300 ||
+      !/^\/images\/[a-zA-Z0-9/_-]+\.(jpg|jpeg|png|webp|avif)$/i.test(
+        data.image_url,
+      ))
   ) {
-    errors.push("Use a local image path such as /images/protein-front.jpg.");
+    if (!isAllowedProductImageUrl(data.image_url)) {
+      errors.push(
+        "Use a local /images/ path or an image uploaded to this store's Cloudinary account.",
+      );
+    }
   }
 
   return { data, errors };
@@ -221,7 +221,7 @@ export async function saveProduct(req, res) {
         res,
         values,
         ["That URL slug is already used by another product."],
-        400
+        400,
       );
     }
 
@@ -230,7 +230,7 @@ export async function saveProduct(req, res) {
         res,
         values,
         ["The selected category or brand no longer exists."],
-        400
+        400,
       );
     }
 
@@ -263,7 +263,7 @@ export async function addVariant(req, res) {
       res,
       product,
       ["Enter an option name of 1–100 characters."],
-      400
+      400,
     );
   }
 
@@ -276,7 +276,7 @@ export async function addVariant(req, res) {
         res,
         product,
         ["This option already exists for the product."],
-        400
+        400,
       );
     }
 
@@ -312,7 +312,7 @@ export async function saveStock(req, res) {
     return showAdminError(
       res,
       "Enter whole numbers from 0 to 9,999,999 for stock and threshold.",
-      400
+      400,
     );
   }
 
@@ -320,13 +320,14 @@ export async function saveStock(req, res) {
     id,
     quantity,
     previousQuantity,
-    threshold
+    threshold,
   );
 
   if (!updated) {
     return showAdminError(
       res,
-      "Stock changed since this page loaded, or the option no longer exists. Return to /admin/inventory, refresh and try again."
+      "Stock could not be saved. The quantity may have changed, the option may no longer exist, or the new physical quantity is below reserved stock. Return to /admin/inventory, refresh and try again.",
+      409,
     );
   }
 

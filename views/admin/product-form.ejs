@@ -122,19 +122,20 @@
     </div>
 
     <div class="col-12">
-      <label for="image_url" class="form-label">Main image path</label>
+      <label for="image_url" class="form-label">Main image URL or path</label>
       <input
         id="image_url"
         name="image_url"
         class="form-control"
-        maxlength="300"
+        maxlength="1000"
         placeholder="/images/product-front.jpg"
         value="<%= values.image_url || '' %>"
       >
 
       <p class="auth-help">
-        Use an existing file in public/images. Leave blank if no image
-        is available. Upload controls will be added separately.
+       Use the image uploader below after saving the product.
+       The uploaded image URL will appear here.
+       Leave blank to remove the main image when saving.
       </p>
     </div>
 

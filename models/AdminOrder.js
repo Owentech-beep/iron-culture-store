@@ -57,28 +57,82 @@ export async function saveDeliveryQuote({
   service,
   expectedVersion,
 }) {
-  const { rows } = await pool.query(
-    `UPDATE orders
-     SET
-       delivery_cents = $1,
-       total_cents = subtotal_cents - discount_cents + $1,
-       shipping_rate_status = 'quoted',
-       courier_name = $2,
-       courier_service = $3,
-       quoted_at = NOW(),
-       quoted_by = $4,
-       quote_version = quote_version + 1,
-       quote_accepted_at = NULL
-     WHERE id = $5
-       AND quote_version = $6
-       AND status = 'pending'
-       AND payment_status = 'unpaid'
-       AND shipping_rate_status IN ('quote_required', 'quoted')
-     RETURNING id`,
-    [deliveryCents, courier, service, adminId, orderId, expectedVersion],
-  );
+  const client = await pool.connect();
 
-  return rows[0] ?? null;
+  try {
+    await client.query("BEGIN");
+
+    // Use the same order lock as payment creation.
+    const { rows: orders } = await client.query(
+      `SELECT id
+       FROM orders
+       WHERE id = $1
+       FOR UPDATE`,
+      [orderId],
+    );
+
+    if (!orders.length) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+
+    // Run after acquiring the lock so committed payment changes are visible.
+    const { rows: blockers } = await client.query(
+      `SELECT p.id
+       FROM payments p
+       WHERE p.order_id = $1
+         AND (
+           p.status IN ('created', 'pending', 'succeeded')
+           OR EXISTS (
+             SELECT 1
+             FROM stock_reservations r
+             WHERE r.payment_id = p.id
+               AND r.status = 'active'
+           )
+         )
+       LIMIT 1`,
+      [orderId],
+    );
+
+    if (blockers.length) {
+      const error = new Error(
+        "The delivery quote cannot change while a payment or stock reservation is unresolved, or after payment succeeds.",
+      );
+      error.status = 409;
+      error.publicMessage = error.message;
+      throw error;
+    }
+
+    const { rows } = await client.query(
+      `UPDATE orders
+       SET
+         delivery_cents = $1,
+         total_cents = subtotal_cents - discount_cents + $1,
+         shipping_rate_status = 'quoted',
+         courier_name = $2,
+         courier_service = $3,
+         quoted_at = NOW(),
+         quoted_by = $4,
+         quote_version = quote_version + 1,
+         quote_accepted_at = NULL
+       WHERE id = $5
+         AND quote_version = $6
+         AND status = 'pending'
+         AND payment_status = 'unpaid'
+         AND stock_deducted_at IS NULL
+         AND shipping_rate_status IN ('quote_required', 'quoted')
+       RETURNING id`,
+      [deliveryCents, courier, service, adminId, orderId, expectedVersion],
+    );
+
+    await client.query("COMMIT");
+    return rows[0] ?? null;
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export function availableOrderStatuses(order) {
@@ -151,18 +205,26 @@ export async function changeAdminOrderStatus({
     }
 
     if (nextStatus === "cancelled") {
-      const activePayment = await client.query(
-        `SELECT id
-         FROM payments
-         WHERE order_id = $1
-           AND status IN ('created', 'pending', 'succeeded')
-         LIMIT 1`,
+      const { rows: blockers } = await client.query(
+        `SELECT p.id
+     FROM payments p
+     WHERE p.order_id = $1
+       AND (
+         p.status IN ('created', 'pending', 'succeeded')
+         OR EXISTS (
+           SELECT 1
+           FROM stock_reservations r
+           WHERE r.payment_id = p.id
+             AND r.status = 'active'
+         )
+       )
+     LIMIT 1`,
         [orderId],
       );
 
-      if (activePayment.rows.length > 0 || order.stock_deducted_at) {
+      if (blockers.length > 0 || order.stock_deducted_at) {
         throw reject(
-          "This order has payment or stock activity. It cannot use unpaid-order cancellation.",
+          "This order has a payment or stock reservation that must be resolved before cancellation, or its stock has already been deducted.",
         );
       }
     }
@@ -237,12 +299,15 @@ export async function getOrderStatusHistory(orderId) {
   const { rows } = await pool.query(
     `SELECT
        h.*,
-       u.name AS admin_name
+       CASE
+         WHEN h.changed_by IS NULL THEN 'System'
+         ELSE COALESCE(u.name, 'Unknown administrator')
+       END AS admin_name
      FROM order_status_history h
-     JOIN users u ON u.id = h.changed_by
+     LEFT JOIN users u ON u.id = h.changed_by
      WHERE h.order_id = $1
      ORDER BY h.created_at DESC, h.id DESC`,
-    [orderId],
+    [orderId]
   );
 
   return rows;

@@ -13,10 +13,158 @@
 
 <p class="order-number"><%= order.order_number %></p>
 
+<% if (reconciliationAlerts.length > 0) { %>
+  <section class="admin-panel p-4 mb-4">
+    <h2 class="h5">Payment Review Required</h2>
+
+    <p>
+      A verified payment notification could not be applied safely.
+      Do not collect another payment or dispatch this order until reviewed.
+    </p>
+
+    <% reconciliationAlerts.forEach((alert) => { %>
+      <div class="notice-panel mb-3">
+        <p class="text-break">
+          Merchant reference:
+          <strong><%= alert.payment_reference %></strong>
+        </p>
+
+        <p>
+          PayFast transaction:
+          <strong><%= alert.provider_payment_id %></strong>
+        </p>
+
+        <p>
+          Reported amount:
+          <strong><%= formatMoney(alert.amount_cents) %></strong>
+        </p>
+
+        <p>
+          Reported PayFast status:
+          <strong><%= alert.provider_status %></strong>
+        </p>
+
+        <p class="mb-0"><%= alert.reason %></p>
+        <% if (
+          alert.provider_status === "COMPLETE" &&
+          order.payment_status === "paid" &&
+          order.is_demo
+        ) { %>
+          <form
+            action="/admin/orders/<%= order.id %>/reconciliation/<%= alert.id %>/resolve"
+            method="POST"
+            class="mt-3"
+          >
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+            <input
+              type="hidden"
+              name="occurrenceCount"
+              value="<%= alert.occurrence_count %>"
+            >
+
+            <label for="resolution-<%= alert.id %>" class="form-label">
+              Review findings
+            </label>
+
+            <textarea
+              id="resolution-<%= alert.id %>"
+              name="note"
+              class="form-control mb-3"
+              minlength="10"
+              maxlength="300"
+              rows="3"
+              required
+            ></textarea>
+
+            <p class="text-muted-custom">
+              Resolution requires a matching successful payment and consumed
+              stock reservations. This action does not issue a refund or change stock.
+            </p>
+
+            <button type="submit" class="btn btn-outline-brand">
+              Resolve After Successful Payment
+            </button>
+          </form>
+        <% } %>
+      </div>
+    <% }); %>
+  </section>
+<% } %>
+
 <% if (order.is_demo) { %>
   <div class="demo-notice">
     Development test order. Do not collect payment or dispatch goods.
   </div>
+<% } %>
+
+<% if (recoverableAttempts.length > 0) { %>
+  <section class="admin-panel p-4 mb-4">
+    <h2 class="h5">Abandoned Sandbox Payments</h2>
+
+    <p class="text-muted-custom">
+      Check the exact reference in PayFast sandbox first.
+      Close an attempt only when no successful or pending provider
+      transaction exists. This releases its reserved stock locally;
+      it does not cancel a transaction at PayFast.
+    </p>
+
+    <% recoverableAttempts.forEach((attempt) => { %>
+      <form
+        action="/admin/orders/<%= order.id %>/payments/<%= attempt.id %>/close-sandbox"
+        method="POST"
+        class="mb-4"
+      >
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+        <p>
+          Attempt <strong><%= attempt.id %></strong>
+          · <%= attempt.status %><br>
+          <span class="text-break"><%= attempt.idempotency_key %></span>
+        </p>
+
+        <label
+          class="form-label"
+          for="recovery-note-<%= attempt.id %>"
+        >
+          Reason for closing
+        </label>
+
+        <textarea
+          id="recovery-note-<%= attempt.id %>"
+          name="note"
+          class="form-control mb-3"
+          minlength="10"
+          maxlength="300"
+          rows="2"
+          required
+        ></textarea>
+
+        <div class="form-check mb-3">
+          <input
+            id="recovery-confirm-<%= attempt.id %>"
+            class="form-check-input"
+            type="checkbox"
+            name="confirmChecked"
+            value="yes"
+            required
+          >
+
+          <label
+            class="form-check-label"
+            for="recovery-confirm-<%= attempt.id %>"
+          >
+            I checked this reference in PayFast sandbox and found
+            no successful or pending transaction.
+          </label>
+        </div>
+
+        <button type="submit" class="btn btn-outline-brand">
+          Close Abandoned Sandbox Attempt
+        </button>
+      </form>
+    <% }); %>
+  </section>
 <% } %>
 
 <div class="row g-4">

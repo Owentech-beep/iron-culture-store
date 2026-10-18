@@ -1,24 +1,33 @@
 <%- include("partials/head") %>
 <%- include("partials/navbar") %>
 
-<main id="main-content" class="section-space">
+<main id="main-content" class="section-space account-home">
   <div class="container">
     <p class="eyebrow">YOUR IRON CULTURE ACCOUNT</p>
-    <h1 class="section-title">Welcome, <%= currentUser.name %></h1>
+    <h1 class="section-title account-welcome">
+      Welcome, <%= currentUser.name %>
+    </h1>
+
+    <p class="text-muted-custom">
+      View your orders, check delivery updates and explore the store.
+    </p>
 
     <div class="row g-4 mt-2">
-      <div class="col-lg-7">
-        <section class="account-panel">
-          <h2>Your Details</h2>
+      <div class="col-lg-4">
+        <section
+          class="account-panel account-profile"
+          aria-labelledby="account-details-heading"
+        >
+          <h2 id="account-details-heading">Your Details</h2>
 
-          <dl class="account-details">
+          <dl class="account-profile-details">
             <dt>Name</dt>
             <dd><%= currentUser.name %></dd>
 
             <dt>Email</dt>
             <dd><%= currentUser.email %></dd>
 
-            <dt>Joined</dt>
+            <dt>Member Since</dt>
             <dd>
               <%= new Date(currentUser.created_at).toLocaleDateString(
                 "en-ZA",
@@ -32,38 +41,99 @@
             </dd>
           </dl>
 
-          <a class="btn btn-brand" href="/shop">
-            Browse the Shop
-          </a>
+          <form action="/logout" method="POST" class="account-signout">
+            <input
+              type="hidden"
+              name="_csrf"
+              value="<%= csrfToken %>"
+            >
 
-          <a href="/orders" class="btn btn-outline-brand">
-            My Orders
-          </a>
-
-          <% if (currentUser.role === "admin") { %>
-            <a href="/admin" class="btn btn-outline-brand">
-                Admin Dashboard
-            </a>
-            <% } %>
-        </section>
-      </div>
-
-      <div class="col-lg-5">
-        <section class="account-panel">
-          <h2>Your Account</h2>
-
-          <p class="text-muted-custom">
-            View your submitted orders using My Orders.
-            Saved addresses and loyalty features are coming later.
-          </p>
-
-          <form action="/logout" method="POST">
-            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <button class="btn btn-outline-brand" type="submit">
+            <button
+              class="btn btn-outline-brand w-100"
+              type="submit"
+            >
               Sign Out
             </button>
           </form>
         </section>
+      </div>
+
+      <div class="col-lg-8">
+        <nav aria-label="Account shortcuts">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <a href="/orders" class="account-shortcut">
+                <span class="account-shortcut-title">
+                  My Orders
+                  <span aria-hidden="true">→</span>
+                </span>
+
+                <span class="account-shortcut-description">
+                  View order details, delivery quotes and tracking
+                  information when available.
+                </span>
+              </a>
+            </div>
+
+            <div class="col-md-6">
+              <a href="/cart" class="account-shortcut">
+                <span class="account-shortcut-title">
+                  My Cart
+                  <span aria-hidden="true">→</span>
+                </span>
+
+                <span class="account-shortcut-description">
+                  Review your selected products and quantities
+                  before checkout.
+                </span>
+              </a>
+            </div>
+
+            <div class="col-md-6">
+              <a href="/shop" class="account-shortcut">
+                <span class="account-shortcut-title">
+                  Shop Supplements
+                  <span aria-hidden="true">→</span>
+                </span>
+
+                <span class="account-shortcut-description">
+                  Browse products by category, brand and price.
+                </span>
+              </a>
+            </div>
+
+            <div class="col-md-6">
+              <a href="/#deals" class="account-shortcut">
+                <span class="account-shortcut-title">
+                  Latest Deals
+                  <span aria-hidden="true">→</span>
+                </span>
+
+                <span class="account-shortcut-description">
+                  Explore products currently listed at sale prices.
+                </span>
+              </a>
+            </div>
+
+            <% if (currentUser.role === "admin") { %>
+              <div class="col-12">
+                <a
+                  href="/admin"
+                  class="account-shortcut account-shortcut-admin"
+                >
+                  <span class="account-shortcut-title">
+                    Admin Dashboard
+                    <span aria-hidden="true">→</span>
+                  </span>
+
+                  <span class="account-shortcut-description">
+                    Manage the catalogue, inventory, customers and orders.
+                  </span>
+                </a>
+              </div>
+            <% } %>
+          </div>
+        </nav>
       </div>
     </div>
   </div>

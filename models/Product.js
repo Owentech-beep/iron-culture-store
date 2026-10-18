@@ -183,7 +183,7 @@ export async function findProductBySlug(slug) {
            v.id,
            v.sku,
            v.flavour,
-           COALESCE(i.quantity, 0) AS stock
+           COALESCE(i.quantity - i.reserved_quantity, 0) AS stock
          FROM product_variants v
          LEFT JOIN inventory i ON i.variant_id = v.id
          WHERE v.product_id = $1 AND v.is_active
@@ -233,6 +233,23 @@ export async function getFeaturedProducts() {
        AND is_featured
        AND ($1::BOOLEAN OR NOT is_demo)
      ORDER BY created_at DESC, id DESC
+     LIMIT 4`,
+    [includeDemo]
+  );
+
+  return result.rows.map(mapProduct);
+}
+
+export async function getDealProducts() {
+  const result = await pool.query(
+    `SELECT *
+     FROM catalogue_products
+     WHERE is_active
+       AND sale_price IS NOT NULL
+       AND sale_price < price
+       AND ($1::BOOLEAN OR NOT is_demo)
+     ORDER BY (price - sale_price) / NULLIF(price, 0) DESC,
+              id DESC
      LIMIT 4`,
     [includeDemo]
   );

@@ -56,9 +56,13 @@
           </li>
 
           <li class="nav-item">
-            <span class="nav-link disabled" aria-disabled="true">
+            <a
+              class="nav-link <%= activePage === 'orders' ? 'active' : '' %>"
+              href="/orders"
+              <% if (activePage === 'orders') { %>aria-current="page"<% } %>
+            >
               Track Order
-            </span>
+            </a>
           </li>
 
           <li class="nav-item">
@@ -86,7 +90,43 @@
             </a>
             </li>
         </ul>
+        <form
+          action="/shop"
+          method="GET"
+          class="header-search"
+          role="search"
+          aria-label="Search the catalogue"
+        >
+          <label for="headerSearch" class="visually-hidden">
+            Search products or brands
+          </label>
+
+          <input
+            id="headerSearch"
+            name="q"
+            type="search"
+            maxlength="100"
+            placeholder="Search products..."
+            value="<%= typeof filters !== 'undefined' && filters ? filters.q : '' %>"
+          >
+
+          <button type="submit" aria-label="Search">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <circle cx="10.5" cy="10.5" r="6.5" />
+              <path d="m16 16 5 5" />
+            </svg>
+          </button>
+        </form>
       </div>
     </div>
   </nav>
 </header>
+<%- include("mobile-nav") %>

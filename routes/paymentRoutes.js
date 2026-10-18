@@ -1,7 +1,10 @@
 import { Router } from "express";
 
 import { requireAuth } from "../middleware/authMiddleware.js";
-import { showPayment } from "../controllers/paymentController.js";
+import {
+  showPayment,
+  submitSandboxPayment,
+} from "../controllers/paymentController.js";
 
 const router = Router();
 
@@ -13,5 +16,6 @@ router.use((req, res, next) => {
 });
 
 router.get("/:id/payment", showPayment);
+router.post("/:id/payment/sandbox", submitSandboxPayment);
 
 export default router;

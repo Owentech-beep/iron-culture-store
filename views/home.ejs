@@ -43,43 +43,64 @@
     </div>
   </section>
 
-  <!-- CATEGORIES -->
+    <!-- CATEGORIES -->
   <section
     id="categories"
-    class="category-section section-space"
+    class="home-category-strip"
     aria-labelledby="categories-heading"
   >
     <div class="container">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">FIND YOUR FOCUS</p>
-          <h2 id="categories-heading" class="section-title">
-            Shop by Category
-          </h2>
-        </div>
-      </div>
+      <h2 id="categories-heading" class="visually-hidden">
+        Shop by Category
+      </h2>
 
-      <div class="row g-3">
-        <% categories.forEach((category) => { %>
-          <div class="col-6 col-md-4 col-xl-3">
-           <a
-            href="/shop/<%= category.slug %>"
-            class="category-card-link"
-            >
-            <article class="category-card">
-                <span class="category-number" aria-hidden="true">
-                <%= category.number %>
-                </span>
+      <% if (categories.length > 0) { %>
+        <nav class="home-category-nav" aria-label="Product categories">
+          <ul class="home-category-list">
+            <% categories.forEach((category) => { %>
+              <li>
+                <a
+                  class="home-category-link"
+                  href="/shop/<%= encodeURIComponent(category.slug) %>"
+                >
+                  <svg
+                    class="home-category-icon"
+                    viewBox="0 0 32 32"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <rect x="11" y="3" width="10" height="5" rx="1" />
+                    <path d="M11 8v3l-4 4v11a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3V15l-4-4V8" />
+                    <rect x="11" y="17" width="10" height="7" rx="1" />
+                    <path d="M16 18.5v4M14 20.5h4" />
+                  </svg>
 
-                <h3><%= category.name %></h3>
-                <p><%= category.description %></p>
-            </article>
-            </a>
-          </div>
-        <% }); %>
-      </div>
+                  <span class="home-category-copy">
+                    <strong><%= category.name %></strong>
+                    <span><%= category.description %></span>
+                  </span>
+
+                  <span class="home-category-arrow" aria-hidden="true">
+                    →
+                  </span>
+                </a>
+              </li>
+            <% }); %>
+          </ul>
+        </nav>
+      <% } else { %>
+        <p class="home-category-empty">
+          Categories will appear here as the catalogue is added.
+        </p>
+      <% } %>
     </div>
   </section>
+
 
   <!-- PRODUCT SECTION -->
   <section
@@ -159,7 +180,7 @@
     </div>
   </section>
 
-  <!-- DEALS -->
+   <!-- DEALS -->
   <section
     id="deals"
     class="section-space"
@@ -168,19 +189,29 @@
     <div class="container">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">WATCH THIS SPACE</p>
+          <p class="eyebrow">EXPLORE THE OFFERS</p>
           <h2 id="deals-heading" class="section-title">
             Latest Deals
           </h2>
         </div>
       </div>
 
-      <div class="notice-panel">
-        <p class="mb-0">
-          There are no active promotions to display.
-          Available offers will appear here.
-        </p>
-      </div>
+      <% if (dealProducts.length === 0) { %>
+        <div class="notice-panel">
+          <p class="mb-0">
+            There are no active promotions to display.
+            Available offers will appear here.
+          </p>
+        </div>
+      <% } else { %>
+        <div class="row g-3">
+          <% dealProducts.forEach((product) => { %>
+            <div class="col-6 col-lg-3">
+              <%- include("partials/product-card", { product }) %>
+            </div>
+          <% }); %>
+        </div>
+      <% } %>
     </div>
   </section>
 

@@ -5,11 +5,10 @@ import {
   findProductBySlug,
   findRelatedProducts,
 } from "../models/Product.js";
+import { isAllowedProductImageUrl } from "../services/productImageStorage.js";
 
 function readText(value, maxLength = 100) {
-  return typeof value === "string"
-    ? value.trim().slice(0, maxLength)
-    : "";
+  return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 }
 
 function readPrice(value) {
@@ -30,13 +29,9 @@ export async function getShop(req, res) {
   const categories = await getCategories();
   const brands = await getBrands();
 
-  const category = readText(
-    req.params.category ?? req.query.category
-  );
+  const category = readText(req.params.category ?? req.query.category);
 
-  const selectedCategory = categories.find(
-    (item) => item.slug === category
-  );
+  const selectedCategory = categories.find((item) => item.slug === category);
 
   if (category && !selectedCategory) {
     return res.status(404).render("error", {
@@ -66,13 +61,9 @@ export async function getShop(req, res) {
     brand: readText(req.query.brand),
     minPrice: readPrice(req.query.minPrice),
     maxPrice: readPrice(req.query.maxPrice),
-    rating: [1, 2, 3, 4, 5].includes(requestedRating)
-      ? requestedRating
-      : 0,
+    rating: [1, 2, 3, 4, 5].includes(requestedRating) ? requestedRating : 0,
     inStock: req.query.inStock === "1",
-    sort: allowedSorts.includes(requestedSort)
-      ? requestedSort
-      : "newest",
+    sort: allowedSorts.includes(requestedSort) ? requestedSort : "newest",
     page:
       Number.isSafeInteger(requestedPage) && requestedPage > 0
         ? Math.min(requestedPage, 10000)
@@ -147,17 +138,14 @@ export async function getProduct(req, res) {
 
   const relatedProducts = await findRelatedProducts(product);
 
-  // Only serve local catalogue images at this stage.
-  function validImagePath(value) {
-    return (
-      typeof value === "string" &&
-      /^\/images\/[a-zA-Z0-9/_-]+\.(jpg|jpeg|png|webp|avif)$/i.test(value)
-    );
-  }
-
   const images = [
     ...new Set(
-      [product.imageUrl, ...(product.images ?? [])].filter(validImagePath)
+      [product.imageUrl, ...(product.images ?? [])].filter(
+        (value) =>
+          typeof value === "string" &&
+          value.trim().length > 0 &&
+          isAllowedProductImageUrl(value),
+      ),
     ),
   ];
 
