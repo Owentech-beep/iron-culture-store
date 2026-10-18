@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { pool } from "../config/database.js";
 import { assertNoOpenPaymentReconciliation } from "./PaymentReconciliation.js";
+import { clearPurchasedCartItems } from "./Cart.js";
 
 function paymentConflict(message) {
   const error = new Error(message);
@@ -276,11 +277,9 @@ export async function completeSandboxPayment({
           "Payment records need review before confirmation.",
         );
       }
-
-      await client.query("COMMIT");
-
-      return {
-        orderId: order.id,
+          await client.query("COMMIT");
+        return {
+          orderId: order.id,
         alreadyProcessed: true,
       };
     }
@@ -396,9 +395,8 @@ export async function completeSandboxPayment({
         "PayFast sandbox payment verified. Test stock reservation consumed; no real money collected.",
       ],
     );
-
     await client.query("COMMIT");
-
+       await clearPurchasedCartItems(client, order.id, order.user_id);
     return {
       orderId: order.id,
       alreadyProcessed: false,

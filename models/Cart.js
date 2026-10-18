@@ -27,6 +27,7 @@ export async function getCart(userId, db = pool) {
     `SELECT
        ci.id,
        ci.quantity,
+       ci.revision,
        v.id AS variant_id,
        v.flavour,
        p.name,
@@ -59,6 +60,7 @@ export async function getCart(userId, db = pool) {
 
     return {
       id: row.id,
+      revision: row.revision,
       variantId: row.variant_id,
       name: row.name,
       slug: row.slug,
@@ -169,7 +171,9 @@ export async function addCartItem(userId, variantId, quantity) {
       `INSERT INTO cart_items (cart_id, variant_id, quantity)
        VALUES ($1, $2, $3)
        ON CONFLICT (cart_id, variant_id)
-       DO UPDATE SET quantity = EXCLUDED.quantity`,
+              DO UPDATE SET
+              quantity = EXCLUDED.quantity,
+              revision = cart_items.revision + 1`,
       [cartId, variantId, nextQuantity],
     );
   });
@@ -192,7 +196,8 @@ export async function updateCartItem(userId, itemId, quantity) {
 
     await client.query(
       `UPDATE cart_items
-       SET quantity = $1
+             SET quantity = $1,
+            revision = revision + 1
        WHERE id = $2 AND cart_id = $3`,
       [quantity, itemId, cartId],
     );
@@ -207,4 +212,36 @@ export async function removeCartItem(userId, itemId) {
       [itemId, cartId],
     );
   });
+}
+
+// Must run inside the transaction that confirms payment.
+// Preserve any cart row changed since this order was submitted.
+export async function clearPurchasedCartItems(client, orderId, userId) {
+  const { rows: carts } = await client.query(
+    `SELECT id
+     FROM carts
+     WHERE user_id = $1
+     FOR UPDATE`,
+    [userId],
+  );
+
+  if (!carts.length) return 0;
+
+  const result = await client.query(
+    `DELETE FROM cart_items AS ci
+     USING order_items AS oi, orders AS o
+     WHERE oi.order_id = o.id
+       AND o.id = $1
+       AND o.user_id = $2
+       AND o.payment_status = 'paid'
+       AND o.stock_deducted_at IS NOT NULL
+       AND ci.cart_id = $3
+       AND ci.id = oi.source_cart_item_id
+       AND ci.revision = oi.source_cart_item_revision
+       AND ci.variant_id = oi.variant_id
+       AND ci.quantity = oi.quantity`,
+    [orderId, userId, carts[0].id],
+  );
+
+  return result.rowCount;
 }

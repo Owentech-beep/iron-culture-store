@@ -1,5 +1,4 @@
 import { createHash, randomUUID } from "node:crypto";
-
 import { pool } from "../config/database.js";
 import { getCart } from "../models/Cart.js";
 import { calculateShipping } from "./shippingService.js";
@@ -26,6 +25,7 @@ export function validateCart(cart) {
 export function cartFingerprint(cart) {
   const snapshot = cart.items.map((item) => ({
     id: item.id,
+    revision: item.revision,
     variantId: item.variantId,
     quantity: item.quantity,
     unitPriceCents: item.unitPriceCents,
@@ -120,7 +120,7 @@ export async function createPendingOrder(userId, draft) {
 
     const orderId = result.rows[0].id;
 
-    for (const item of cart.items) {
+        for (const item of cart.items) {
       await client.query(
         `INSERT INTO order_items (
            order_id,
@@ -129,9 +129,11 @@ export async function createPendingOrder(userId, draft) {
            variant_name,
            quantity,
            unit_price_cents,
-           line_total_cents
+           line_total_cents,
+           source_cart_item_id,
+           source_cart_item_revision
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [
           orderId,
           item.variantId,
@@ -140,7 +142,9 @@ export async function createPendingOrder(userId, draft) {
           item.quantity,
           item.unitPriceCents,
           item.lineTotalCents,
-        ]
+          item.id,
+          item.revision,
+        ],
       );
     }
 
