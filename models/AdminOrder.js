@@ -292,8 +292,12 @@ export async function changeAdminOrderStatus({
          note
        )
        VALUES ($1, $2, $3, $4, $5)`,
-      [orderId, order.status, nextStatus, adminId, note],
+           [orderId, order.status, nextStatus, adminId, note],
     );
+
+    if (nextStatus === "shipped") {
+      await queueOrderEmail(client, orderId, "order_shipped");
+    }
 
     await client.query("COMMIT");
   } catch (error) {

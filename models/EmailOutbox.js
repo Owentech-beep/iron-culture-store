@@ -2,6 +2,7 @@ const supportedEvents = new Set([
   "order_received",
   "payment_confirmed",
   "delivery_quote_ready",
+  "order_shipped",
 ]);
 
 export async function enqueueOrderEmail(

@@ -8,10 +8,11 @@ function formatMoney(cents) {
 }
 
 export async function queueOrderEmail(client, orderId, eventType) {
-  const supportedEvents = [
+   const supportedEvents = [
     "order_received",
     "payment_confirmed",
     "delivery_quote_ready",
+    "order_shipped",
   ];
 
   if (!supportedEvents.includes(eventType)) {
@@ -33,7 +34,10 @@ export async function queueOrderEmail(client, orderId, eventType) {
        shipping_rate_status,
        quote_version,
        courier_name,
-       courier_service
+       courier_service,
+       tracking_courier,
+       tracking_number,
+       shipped_at
      FROM orders
      WHERE id = $1`,
     [orderId],
@@ -99,6 +103,36 @@ export async function queueOrderEmail(client, orderId, eventType) {
       "Accepting a quote does not itself collect payment or reserve stock.",
       "",
       "This email records the quote above. If it is revised, your order page will show the latest version.",
+    ];
+    } else if (eventType === "order_shipped") {
+    if (
+      order.is_demo ||
+      order.status !== "shipped" ||
+      order.payment_status !== "paid" ||
+      !order.stock_deducted_at ||
+      !order.shipped_at ||
+      typeof order.tracking_courier !== "string" ||
+      !order.tracking_courier.trim() ||
+      typeof order.tracking_number !== "string" ||
+      !order.tracking_number.trim()
+    ) {
+      throw new Error(
+        "Dispatch email requires a shipped, paid, non-demo order with tracking details.",
+      );
+    }
+
+    subject = `Order dispatched — ${order.order_number}`;
+
+    lines = [
+      "Your Iron Culture Supplements order has been dispatched.",
+      "",
+      `Order: ${order.order_number}`,
+      `Courier: ${order.tracking_courier}`,
+      `Tracking number: ${order.tracking_number}`,
+      "",
+      "Use this tracking number on the courier's official tracking service.",
+      "Tracking updates may take time to appear.",
+      "Sign in to your account and open My Orders to view your order details.",
     ];
   } else {
     if (
