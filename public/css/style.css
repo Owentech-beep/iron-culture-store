@@ -2279,3 +2279,20 @@ button:focus-visible {
     width: 100%;
   }
 }
+/* Homepage animation: visible by default, enhanced by JavaScript. */
+
+html:not(.aos-enabled) [data-aos] {
+  opacity: 1 !important;
+  transform: none !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transition: none !important;
+}
+
+[data-aos]:focus-within {
+  opacity: 1 !important;
+  transform: none !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transition: none !important;
+}

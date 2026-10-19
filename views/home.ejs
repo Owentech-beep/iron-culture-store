@@ -132,11 +132,15 @@
         </div>
       <% } else { %>
         <div class="row g-3">
-            <% featuredProducts.forEach((product) => { %>
-            <div class="col-6 col-lg-3">
-                <%- include("partials/product-card", { product }) %>
+            <% featuredProducts.forEach((product, index) => { %>
+            <div
+              class="col-6 col-lg-3"
+              data-aos="fade-up"
+              data-aos-delay="<%= (index % 4) * 50 %>"
+            >
+              <%- include("partials/product-card", { product }) %>
             </div>
-            <% }); %>
+          <% }); %>
         </div>
         <% } %>
     </div>
@@ -205,8 +209,12 @@
         </div>
       <% } else { %>
         <div class="row g-3">
-          <% dealProducts.forEach((product) => { %>
-            <div class="col-6 col-lg-3">
+          <% dealProducts.forEach((product, index) => { %>
+            <div
+              class="col-6 col-lg-3"
+              data-aos="fade-up"
+              data-aos-delay="<%= (index % 4) * 50 %>"
+            >
               <%- include("partials/product-card", { product }) %>
             </div>
           <% }); %>
