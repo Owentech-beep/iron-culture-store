@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { pool } from "../config/database.js";
 import { getCart } from "../models/Cart.js";
 import { calculateShipping } from "./shippingService.js";
+import { queueOrderEmail } from "./orderEmailService.js";
 
 export function checkoutError(message) {
   const error = new Error(message);
@@ -149,6 +150,8 @@ export async function createPendingOrder(userId, draft) {
     }
 
     // No payment has happened: do not decrement inventory or clear the cart.
+    await queueOrderEmail(client, orderId, "order_received");
+
     await client.query("COMMIT");
     return orderId;
   } catch (error) {
