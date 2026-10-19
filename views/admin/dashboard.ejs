@@ -75,6 +75,133 @@
 
 <section class="admin-panel mb-4">
   <div class="admin-panel-heading">
+    <h2>Order Emails</h2>
+    <span>
+      <%= emailOverview.summary.total %> total ·
+      <%= emailOverview.summary.demo %> demo
+    </span>
+  </div>
+
+  <div class="p-3">
+    <dl class="row g-3 mb-3">
+      <div class="col-6 col-lg-3">
+        <dt>Pending</dt>
+        <dd class="h4 mb-0">
+          <%= emailOverview.summary.pending %>
+        </dd>
+      </div>
+
+      <div class="col-6 col-lg-3">
+        <dt>Sending</dt>
+        <dd class="h4 mb-0">
+          <%= emailOverview.summary.sending %>
+        </dd>
+      </div>
+
+      <div class="col-6 col-lg-3">
+        <dt>Accepted by provider</dt>
+        <dd class="h4 mb-0">
+          <%= emailOverview.summary.sent %>
+        </dd>
+      </div>
+
+      <div class="col-6 col-lg-3">
+        <dt>Needs attention</dt>
+        <dd class="h4 mb-0">
+          <%= emailOverview.summary.failed
+            + emailOverview.summary.review_required
+            + emailOverview.summary.stalled %>
+        </dd>
+      </div>
+    </dl>
+
+    <p class="text-muted-custom mb-0">
+      Counts include demo emails. Provider acceptance does not confirm
+      inbox delivery. Stalled sends are also included in Sending.
+    </p>
+
+    <% if (emailOverview.summary.stalled > 0) { %>
+      <div class="notice-panel mt-3">
+        <%= emailOverview.summary.stalled %> sending attempt(s)
+        have been held for over five minutes.
+        Check the provider's records before attempting recovery.
+      </div>
+    <% } %>
+  </div>
+
+  <% if (emailOverview.recent.length === 0) { %>
+    <p class="admin-empty">No order emails have been queued.</p>
+  <% } else { %>
+    <div class="table-responsive">
+      <table class="table admin-table">
+        <caption class="visually-hidden">
+          Latest 10 order emails. Times shown in South African time.
+        </caption>
+
+        <thead>
+          <tr>
+            <th scope="col">Order</th>
+            <th scope="col">Email</th>
+            <th scope="col">Status</th>
+            <th scope="col">Attempts</th>
+            <th scope="col">Queued</th>
+            <th scope="col">Details</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <% emailOverview.recent.forEach((email) => { %>
+            <tr>
+              <td>
+                <a
+                  class="admin-order-number"
+                  href="/admin/orders/<%= email.order_id %>"
+                >
+                  <%= email.order_number %>
+                </a>
+
+                <% if (email.is_demo) { %>
+                  <span class="demo-label d-inline-block mt-2 mb-0">
+                    Demo
+                  </span>
+                <% } %>
+              </td>
+
+              <td>
+                <%= emailEventLabels[email.event_type] ?? email.event_type %>
+
+                <% if (email.event_type === "delivery_quote_ready") { %>
+                  <span class="d-block text-muted-custom">
+                    Version <%= email.event_version %>
+                  </span>
+                <% } %>
+              </td>
+
+              <td>
+                <%= emailStatusLabels[email.status] ?? email.status %>
+
+                <% if (email.stalled) { %>
+                  <strong class="d-block">Stalled — review needed</strong>
+                <% } %>
+              </td>
+
+              <td><%= email.attempt_count %></td>
+
+              <td><%= formatDateTime(email.created_at) %></td>
+
+              <td class="text-break">
+                <%= email.last_error || "—" %>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
+
+<section class="admin-panel mb-4">
+  <div class="admin-panel-heading">
     <h2>Recent Orders</h2>
     <span>Latest 8</span>
   </div>
