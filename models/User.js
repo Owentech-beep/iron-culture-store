@@ -2,10 +2,17 @@ import { pool } from "../config/database.js";
 
 export async function findUserByEmail(email) {
   const { rows } = await pool.query(
-    `SELECT id, name, email, password_hash, role, is_active
+    `SELECT
+       id,
+       name,
+       email,
+       password_hash,
+       role,
+       is_active,
+       auth_version
      FROM users
      WHERE email = $1`,
-    [email]
+    [email],
   );
 
   return rows[0] ?? null;
@@ -13,10 +20,17 @@ export async function findUserByEmail(email) {
 
 export async function findUserById(id) {
   const { rows } = await pool.query(
-    `SELECT id, name, email, role, is_active, created_at
+    `SELECT
+       id,
+       name,
+       email,
+       role,
+       is_active,
+       created_at,
+       auth_version
      FROM users
      WHERE id = $1`,
-    [id]
+    [id],
   );
 
   return rows[0] ?? null;
@@ -26,8 +40,8 @@ export async function createUser({ name, email, passwordHash }) {
   const { rows } = await pool.query(
     `INSERT INTO users (name, email, password_hash)
      VALUES ($1, $2, $3)
-     RETURNING id, name, email, role`,
-    [name, email, passwordHash]
+     RETURNING id, name, email, role, auth_version`,
+    [name, email, passwordHash],
   );
 
   return rows[0];

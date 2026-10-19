@@ -34,7 +34,11 @@ function renderAuth(res, mode, options = {}) {
   });
 }
 
-async function startUserSession(req, userId) {
+async function startUserSession(req, userId, authVersion) {
+  if (!Number.isInteger(authVersion) || authVersion < 0) {
+    throw new Error("Invalid account session version.");
+  }
+
   await new Promise((resolve, reject) => {
     req.session.regenerate((error) => {
       if (error) return reject(error);
@@ -43,6 +47,7 @@ async function startUserSession(req, userId) {
   });
 
   req.session.userId = userId;
+  req.session.authVersion = authVersion;
 
   await new Promise((resolve, reject) => {
     req.session.save((error) => {
@@ -120,7 +125,7 @@ export async function register(req, res) {
     throw error;
   }
 
-  await startUserSession(req, user.id);
+  await startUserSession(req, user.id, user.auth_version);
   return res.redirect(303, "/account");
 }
 
@@ -153,7 +158,7 @@ export async function login(req, res) {
     });
   }
 
-  await startUserSession(req, user.id);
+  await startUserSession(req, user.id, user.auth_version);
   return res.redirect(303, "/account");
 }
 

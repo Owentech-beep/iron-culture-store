@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
-
 import {
   showRegister,
   showLogin,
@@ -8,14 +7,18 @@ import {
   login,
   logout,
   showAccount,
-  showForgotPassword,
 } from "../controllers/authController.js";
-
 import {
   requireAuth,
   requireGuest,
 } from "../middleware/authMiddleware.js";
-
+import {
+  passwordResetHeaders,
+  showPasswordRecovery,
+  submitPasswordRecovery,
+  showPasswordReset,
+  submitPasswordReset,
+} from "../controllers/passwordResetController.js";
 const router = Router();
 
 const authLimiter = rateLimit({
@@ -48,6 +51,31 @@ router.post("/login", authLimiter, requireGuest, login);
 router.post("/logout", logout);
 
 router.get("/account", requireAuth, showAccount);
-router.get("/forgot-password", requireGuest, showForgotPassword);
+router.get(
+  "/forgot-password",
+  passwordResetHeaders,
+  showPasswordRecovery,
+);
+
+router.post(
+  "/forgot-password",
+  passwordResetHeaders,
+  authLimiter,
+  submitPasswordRecovery,
+);
+
+router.get(
+  "/reset-password",
+  passwordResetHeaders,
+  authLimiter,
+  showPasswordReset,
+);
+
+router.post(
+  "/reset-password",
+  passwordResetHeaders,
+  authLimiter,
+  submitPasswordReset,
+);
 
 export default router;

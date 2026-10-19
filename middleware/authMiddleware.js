@@ -12,8 +12,21 @@ export async function loadCurrentUser(req, res, next) {
 
   const user = await findUserById(userId);
 
-  if (!user || !user.is_active) {
-    delete req.session.userId;
+  const validSession =
+    user &&
+    user.is_active &&
+    Number.isInteger(req.session.authVersion) &&
+    req.session.authVersion === user.auth_version;
+
+  if (!validSession) {
+    // Replace the obsolete session, including its CSRF token.
+    await new Promise((resolve, reject) => {
+      req.session.regenerate((error) => {
+        if (error) return reject(error);
+        resolve();
+      });
+    });
+
     return next();
   }
 
