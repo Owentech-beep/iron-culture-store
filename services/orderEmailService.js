@@ -7,10 +7,14 @@ function formatMoney(cents) {
   }).format(Number(cents) / 100);
 }
 
-// Uses the caller's transaction so the email and order changes
-// are committed or rolled back together.
 export async function queueOrderEmail(client, orderId, eventType) {
-  if (!["order_received", "payment_confirmed"].includes(eventType)) {
+  const supportedEvents = [
+    "order_received",
+    "payment_confirmed",
+    "delivery_quote_ready",
+  ];
+
+  if (!supportedEvents.includes(eventType)) {
     throw new Error("Unsupported order email event.");
   }
 
@@ -24,7 +28,12 @@ export async function queueOrderEmail(client, orderId, eventType) {
        subtotal_cents,
        delivery_cents,
        total_cents,
-       is_demo
+       is_demo,
+       status,
+       shipping_rate_status,
+       quote_version,
+       courier_name,
+       courier_service
      FROM orders
      WHERE id = $1`,
     [orderId],
@@ -57,6 +66,39 @@ export async function queueOrderEmail(client, orderId, eventType) {
       "Your order has been received. This is not a payment receipt.",
       "Submitting this order does not reserve stock.",
       "Sign in to your account and open My Orders to view its latest status.",
+    ];
+  } else if (eventType === "delivery_quote_ready") {
+    if (
+      order.status !== "pending" ||
+      order.payment_status !== "unpaid" ||
+      order.shipping_rate_status !== "quoted" ||
+      !Number.isInteger(order.quote_version) ||
+      order.quote_version <= 0 ||
+      order.delivery_cents === null ||
+      order.total_cents === null
+    ) {
+      throw new Error(
+        "Delivery quote email requires a finalised quote on an unpaid pending order.",
+      );
+    }
+
+    subject = `${prefix}Delivery quote ready — ${order.order_number}`;
+
+    lines = [
+      "Your delivery quote is ready to review.",
+      "",
+      `Order: ${order.order_number}`,
+      `Quote version: ${order.quote_version}`,
+      `Courier: ${order.courier_name}`,
+      `Service: ${order.courier_service}`,
+      `Delivery charge: ${formatMoney(order.delivery_cents)}`,
+      `Order total including delivery: ${formatMoney(order.total_cents)}`,
+      "",
+      "Sign in to your account, open My Orders, and select this order.",
+      "Review the latest delivery charge and total before accepting.",
+      "Accepting a quote does not itself collect payment or reserve stock.",
+      "",
+      "This email records the quote above. If it is revised, your order page will show the latest version.",
     ];
   } else {
     if (
@@ -97,6 +139,8 @@ export async function queueOrderEmail(client, orderId, eventType) {
   return enqueueOrderEmail(client, {
     orderId: order.id,
     eventType,
+    eventVersion:
+      eventType === "delivery_quote_ready" ? order.quote_version : 0,
     recipient,
     subject,
     textBody: lines.join("\n"),

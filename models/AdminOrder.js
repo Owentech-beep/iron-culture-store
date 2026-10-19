@@ -1,4 +1,5 @@
 import { pool } from "../config/database.js";
+import { queueOrderEmail } from "../services/orderEmailService.js";
 
 export async function listAdminOrders() {
   const { rows } = await pool.query(
@@ -124,6 +125,14 @@ export async function saveDeliveryQuote({
        RETURNING id`,
       [deliveryCents, courier, service, adminId, orderId, expectedVersion],
     );
+
+        if (rows[0]) {
+      await queueOrderEmail(
+        client,
+        rows[0].id,
+        "delivery_quote_ready",
+      );
+    }
 
     await client.query("COMMIT");
     return rows[0] ?? null;

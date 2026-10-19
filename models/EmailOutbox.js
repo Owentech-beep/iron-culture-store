@@ -1,15 +1,15 @@
 const supportedEvents = new Set([
   "order_received",
   "payment_confirmed",
+  "delivery_quote_ready",
 ]);
 
-// Call using the client from an existing order/payment transaction.
-// This function only queues an email. It never contacts an email provider.
 export async function enqueueOrderEmail(
   client,
   {
     orderId,
     eventType,
+    eventVersion = 0,
     recipient,
     subject,
     textBody,
@@ -23,6 +23,16 @@ export async function enqueueOrderEmail(
     typeof isDemo !== "boolean"
   ) {
     throw new Error("Invalid order email event.");
+  }
+
+  if (
+    !Number.isSafeInteger(eventVersion) ||
+    eventVersion > 2147483647 ||
+    (eventType === "delivery_quote_ready"
+      ? eventVersion <= 0
+      : eventVersion !== 0)
+  ) {
+    throw new Error("Invalid order email event version.");
   }
 
   if (
@@ -51,17 +61,19 @@ export async function enqueueOrderEmail(
     `INSERT INTO email_outbox (
        order_id,
        event_type,
+       event_version,
        recipient,
        subject,
        text_body,
        is_demo
      )
-     VALUES ($1, $2, $3, $4, $5, $6)
-     ON CONFLICT (order_id, event_type) DO NOTHING
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (order_id, event_type, event_version) DO NOTHING
      RETURNING id`,
     [
       orderId,
       eventType,
+      eventVersion,
       recipient.trim(),
       subject.trim(),
       textBody.trim(),
