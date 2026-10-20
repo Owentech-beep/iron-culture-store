@@ -9,7 +9,20 @@ export function notFound(req, res, next) {
 }
 
 export function errorHandler(error, req, res, next) {
-  console.error(error);
+  console.error("Request failed:", {
+    method: req.method,
+    name: error.name,
+    status: error.status ?? error.statusCode ?? 500,
+    code:
+      typeof error.code === "string" && /^[A-Z0-9_]{1,60}$/.test(error.code)
+        ? error.code
+        : undefined,
+  });
+
+  // Detailed diagnostics remain available during local development.
+  if (process.env.NODE_ENV === "development") {
+    console.error(error);
+  }
 
   if (res.headersSent) {
     return next(error);

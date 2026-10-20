@@ -35,6 +35,12 @@ if (process.env.NODE_ENV === "production") {
 const port = Number(process.env.PORT || 3000);
 
 app.disable("x-powered-by");
+// Lightweight process health check.
+// Runs before sessions, authentication and database-backed middleware.
+app.get("/healthz", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.status(200).json({ status: "ok" });
+});
 
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
