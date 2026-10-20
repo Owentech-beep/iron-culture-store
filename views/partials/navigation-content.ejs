@@ -1,0 +1,83 @@
+<%
+  const navPage = typeof activePage !== "undefined" ? activePage : "";
+  const navUser = typeof currentUser !== "undefined" && currentUser;
+  const navCount =
+    typeof cartCount !== "undefined" ? Number(cartCount) || 0 : 0;
+
+  const navLinks = [
+    { label: "Home", href: "/", page: "home" },
+    { label: "Shop", href: "/shop", page: "shop" },
+    { label: "Categories", href: "/#categories" },
+    { label: "Brands", href: "/#brands" },
+    { label: "Deals", href: "/#deals" },
+    { label: "Track Order", href: "/orders", page: "orders" },
+    {
+      label: navUser ? "My Account" : "Sign In",
+      href: navUser ? "/account" : "/login",
+      page: "account"
+    }
+  ];
+%>
+
+<ul class="navbar-nav ms-lg-auto align-items-lg-center gap-lg-2">
+  <% navLinks.forEach((link) => { %>
+    <li class="nav-item">
+      <a
+        href="<%= link.href %>"
+        class="nav-link <%= link.page && navPage === link.page ? 'active' : '' %>"
+        <% if (link.page && navPage === link.page) { %>
+          aria-current="page"
+        <% } %>
+      >
+        <%= link.label %>
+      </a>
+    </li>
+  <% }); %>
+
+  <li class="nav-item">
+    <a
+      href="/cart"
+      class="nav-link <%= navPage === 'cart' ? 'active' : '' %>"
+      <% if (navPage === "cart") { %>aria-current="page"<% } %>
+    >
+      Cart
+      <span class="cart-badge"><%= navCount %></span>
+    </a>
+  </li>
+</ul>
+
+<form
+  action="/shop"
+  method="GET"
+  class="header-search"
+  role="search"
+  aria-label="Search the catalogue"
+>
+  <label for="<%= searchInputId %>" class="visually-hidden">
+    Search products or brands
+  </label>
+
+  <input
+    id="<%= searchInputId %>"
+    name="q"
+    type="search"
+    maxlength="100"
+    placeholder="Search products..."
+    value="<%= typeof filters !== 'undefined' && filters ? filters.q : '' %>"
+  >
+
+  <button type="submit" aria-label="Search">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linecap="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <circle cx="10.5" cy="10.5" r="6.5" />
+      <path d="m16 16 5 5" />
+    </svg>
+  </button>
+</form>

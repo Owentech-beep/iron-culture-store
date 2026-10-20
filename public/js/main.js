@@ -61,3 +61,38 @@
     initialiseAnimations();
   }
 })();
+(() => {
+  const menu = document.getElementById("mobileMenu");
+  const toggle = document.getElementById("mobileMenuToggle");
+
+  if (!menu || !toggle || !window.bootstrap?.Offcanvas) return;
+
+  menu.addEventListener("show.bs.offcanvas", () => {
+    toggle.setAttribute("aria-expanded", "true");
+  });
+
+  menu.addEventListener("hidden.bs.offcanvas", () => {
+    toggle.setAttribute("aria-expanded", "false");
+  });
+
+  // Close the drawer for normal navigation, including homepage anchors.
+  menu.addEventListener("click", (event) => {
+    if (!(event.target instanceof Element)) return;
+    if (event.button !== 0) return;
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+
+    const link = event.target.closest("a[href]");
+    if (!link) return;
+
+    window.bootstrap.Offcanvas.getInstance(menu)?.hide();
+  });
+
+  // Release the backdrop and scroll lock when switching to desktop width.
+  const desktop = window.matchMedia("(min-width: 992px)");
+
+  desktop.addEventListener("change", (event) => {
+    if (event.matches) {
+      window.bootstrap.Offcanvas.getInstance(menu)?.hide();
+    }
+  });
+})();
