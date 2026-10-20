@@ -19,14 +19,18 @@ function configureCloudinary() {
   });
 }
 
-export async function uploadProductImage(buffer) {
+export async function uploadProductImage(buffer, imageKind = "products") {
+  if (!["products", "brands"].includes(imageKind)) {
+    throw new Error("Unsupported image category.");
+  }
+
   configureCloudinary();
 
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
         resource_type: "image",
-        public_id: `iron-culture/products/${randomUUID()}`,
+        public_id: `iron-culture/${imageKind}/${randomUUID()}`,
         overwrite: false,
         format: "webp",
         timeout: 60000,

@@ -2,7 +2,6 @@ import "dotenv/config";
 import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
 import { pool, checkDatabaseConnection } from "./config/database.js";
 import indexRoutes from "./routes/indexRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
@@ -19,6 +18,7 @@ import orderRoutes from "./routes/orderRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import payfastNotificationRoutes from "./routes/payfastNotificationRoutes.js";
+import newsletterRoutes from "./routes/newsletterRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -76,7 +76,7 @@ app.use("/checkout", checkoutRoutes);
 app.use("/orders", paymentRoutes);
 app.use("/orders", orderRoutes);
 app.use("/cart", cartRoutes);
-
+app.use("/newsletter", newsletterRoutes);
 app.use("/", authRoutes);
 app.use("/", indexRoutes);
 app.use("/shop", productRoutes);

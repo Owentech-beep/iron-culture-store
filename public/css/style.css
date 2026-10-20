@@ -2381,3 +2381,236 @@ html:not(.aos-enabled) [data-aos] {
     animation: none;
   }
 }
+/* Customer contact */
+
+.contact-email {
+  overflow-wrap: anywhere;
+}
+
+#contact {
+  scroll-margin-top: 110px;
+}
+
+/* Floating WhatsApp contact */
+
+.whatsapp-contact {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right, 0px));
+  bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  z-index: 1020;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--brand);
+  border-radius: 50%;
+  background: #151515;
+  color: #fff;
+  text-decoration: none;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.35);
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.whatsapp-contact svg {
+  flex-shrink: 0;
+}
+
+.whatsapp-contact-label {
+  position: absolute;
+  right: calc(100% + 0.75rem);
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #151515;
+  color: #fff;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  font-weight: 700;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(6px);
+  pointer-events: none;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    visibility 180ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .whatsapp-contact:hover {
+    background: var(--brand);
+    color: #fff;
+    transform: translateY(-3px);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+  }
+
+  .whatsapp-contact:hover .whatsapp-contact-label {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(0);
+  }
+}
+
+.whatsapp-contact:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 4px;
+  background: var(--brand);
+  color: #fff;
+}
+
+.whatsapp-contact:focus-visible .whatsapp-contact-label {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+}
+
+@media (max-width: 991.98px) {
+  body:has(.mobile-bottom-nav) .whatsapp-contact {
+    bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (max-width: 575.98px) {
+  .whatsapp-contact {
+    width: 50px;
+    height: 50px;
+    right: max(0.75rem, env(safe-area-inset-right, 0px));
+  }
+}
+
+/* Extra clearance when scrolling to the bottom of a storefront page. */
+body:has(.whatsapp-contact) .site-footer {
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whatsapp-contact,
+  .whatsapp-contact-label {
+    transition: none;
+  }
+
+  .whatsapp-contact:hover,
+  .whatsapp-contact-label {
+    transform: none;
+  }
+}
+
+@media print {
+  .whatsapp-contact {
+    display: none;
+  }
+}
+/* Brand logos */
+
+.brand-logo-preview {
+  display: grid;
+  place-items: center;
+  width: min(100%, 280px);
+  min-height: 140px;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #f4f4f4;
+}
+
+.brand-logo-preview img {
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.brand-logo-preview .text-muted-custom {
+  color: #555;
+}
+
+.brand-lineup-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.brand-lineup-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  min-width: 0;
+  min-height: 150px;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #151515;
+  color: var(--text);
+  text-align: center;
+  text-decoration: none;
+  transition: border-color 180ms ease;
+}
+
+.brand-lineup-card img {
+  display: block;
+  width: 100%;
+  height: 100px;
+  padding: 0.5rem;
+  border-radius: 3px;
+  background: #f4f4f4;
+  object-fit: contain;
+}
+
+.brand-lineup-card span {
+  font-size: 0.85rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.brand-lineup-card:hover {
+  border-color: var(--brand);
+  color: var(--text);
+}
+
+.brand-lineup-card:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 4px;
+}
+
+@media (max-width: 575.98px) {
+  .brand-lineup-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .brand-lineup-card {
+    padding: 0.75rem;
+  }
+
+  .brand-lineup-card img {
+    height: 80px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-lineup-card {
+    transition: none;
+  }
+}
+
+.newsletter-signup {
+  flex: 0 1 420px;
+  width: 100%;
+  min-width: 0;
+}
+
+.newsletter-signup .form-check-label {
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 991.98px) {
+  .newsletter-signup {
+    flex-basis: auto;
+  }
+}

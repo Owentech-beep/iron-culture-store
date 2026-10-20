@@ -53,7 +53,7 @@ export async function getCategories() {
 
 export async function getBrands() {
   const { rows } = await pool.query(
-    `SELECT id, name, slug
+    `SELECT id, name, slug, logo_url
      FROM brands
      WHERE ($1::BOOLEAN OR NOT is_demo)
      ORDER BY name`,

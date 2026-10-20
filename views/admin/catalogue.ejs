@@ -130,7 +130,71 @@
         <% } %>
       </div>
     </form>
+    <% if (kind === "brands") { %>
+        <div class="brand-logo-editor mt-4 pt-4 border-top">
+          <h3 class="h6">Brand Logo</h3>
+
+          <div class="brand-logo-preview mb-3">
+            <img
+              data-brand-logo-preview="<%= entry.id %>"
+              src="<%= entry.logo_url || '' %>"
+              alt="<%= entry.name %> logo"
+              width="220"
+              height="110"
+              <% if (!entry.logo_url) { %>hidden<% } %>
+            >
+
+            <span
+              data-brand-logo-placeholder="<%= entry.id %>"
+              class="text-muted-custom"
+              <% if (entry.logo_url) { %>hidden<% } %>
+            >
+              No logo uploaded
+            </span>
+          </div>
+
+          <form
+            action="/admin/catalogue/brands/<%= entry.id %>/logo"
+            method="POST"
+            enctype="multipart/form-data"
+            class="admin-form brand-logo-upload"
+            data-brand-id="<%= entry.id %>"
+          >
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+            <label for="brand-logo-<%= entry.id %>" class="form-label">
+              Choose a logo
+            </label>
+
+            <input
+              id="brand-logo-<%= entry.id %>"
+              name="logo"
+              type="file"
+              class="form-control mb-2"
+              accept="image/jpeg,image/png,image/webp"
+              required
+            >
+
+            <p class="text-muted-custom small">
+              JPEG, PNG or WebP. Maximum 5 MB.
+              A transparent PNG or WebP works well for logos.
+            </p>
+
+            <button type="submit" class="btn btn-outline-brand">
+              Upload Logo
+            </button>
+
+            <p
+              class="brand-logo-upload-status mt-2 mb-0"
+              role="status"
+              aria-live="polite"
+            ></p>
+          </form>
+        </div>
+      <% } %>
   </section>
 <% }); %>
-
+<% if (kind === "brands") { %>
+  <script src="/js/admin-brand-logos.js" defer></script>
+<% } %>
 <%- include("partials/footer") %>

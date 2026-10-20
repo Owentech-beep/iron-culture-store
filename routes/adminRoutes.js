@@ -29,6 +29,8 @@ import {
   showCustomers,
   showCustomer,
 } from "../controllers/adminCustomerController.js";
+import { receiveBrandLogo } from "../middleware/brandLogoUploadMiddleware.js";
+import { uploadBrandLogo } from "../controllers/adminBrandLogoController.js";
 
 const router = Router();
 
@@ -71,5 +73,10 @@ router.post(
 router.post(
   "/orders/:id/reconciliation/:alertId/resolve",
   submitReconciliationResolution
+);
+router.post(
+  "/catalogue/brands/:id/logo",
+  receiveBrandLogo,
+  uploadBrandLogo,
 );
 export default router;

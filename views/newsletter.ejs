@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="referrer" content="no-referrer">
+
+    <title><%= pageTitle %></title>
+
+    <link
+      rel="stylesheet"
+      href="/vendor/bootstrap/css/bootstrap.min.css"
+    >
+    <link rel="stylesheet" href="/css/style.css">
+  </head>
+
+  <body>
+    <main id="main-content" class="section-space">
+      <div class="container">
+        <section class="auth-panel">
+          <p class="eyebrow">IRON CULTURE NEWSLETTER</p>
+          <h1 class="section-title"><%= heading %></h1>
+          <p class="text-muted-custom"><%= message %></p>
+
+          <% if (action) { %>
+            <form action="<%= action %>" method="POST" class="mb-3">
+              <input
+                type="hidden"
+                name="_csrf"
+                value="<%= csrfToken %>"
+              >
+              <input type="hidden" name="token" value="<%= token %>">
+
+              <button type="submit" class="btn btn-brand w-100">
+                <%= buttonLabel %>
+              </button>
+            </form>
+          <% } %>
+
+          <a href="/" class="btn btn-outline-brand w-100">
+            Back to Store
+          </a>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

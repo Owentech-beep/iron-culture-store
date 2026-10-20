@@ -23,7 +23,7 @@ export async function listCatalogueEntries(kind) {
 
   const { rows } = await pool.query(
     `SELECT id, name, slug
-     ${kind === "brands" ? ", is_demo" : ""}
+     ${kind === "brands" ? ", is_demo, logo_url" : ""}
      FROM ${table}
      ORDER BY name`
   );

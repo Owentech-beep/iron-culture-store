@@ -244,16 +244,27 @@
                 Confirmed brands will appear here when the catalogue launches.
             </p>
             <% } else { %>
-            <div class="d-flex flex-wrap gap-3">
+            <div class="brand-lineup-grid">
                 <% brands.forEach((brand) => { %>
-                <a
+                  <a
                     href="/shop?brand=<%= encodeURIComponent(brand.slug) %>"
-                    class="btn btn-outline-brand"
-                >
-                    <%= brand.name %>
-                </a>
+                    class="brand-lineup-card"
+                  >
+                    <% if (brand.logo_url) { %>
+                      <img
+                        src="<%= brand.logo_url %>"
+                        alt=""
+                        width="240"
+                        height="120"
+                        loading="lazy"
+                        decoding="async"
+                      >
+                    <% } %>
+
+                    <span><%= brand.name %></span>
+                  </a>
                 <% }); %>
-            </div>
+              </div>
             <% } %>
         </div>
       </div>
@@ -261,26 +272,71 @@
   </section>
 
   <!-- NEWSLETTER: NO DATA COLLECTION UNTIL BACKEND EXISTS -->
-  <section class="section-space" aria-labelledby="newsletter-heading">
-    <div class="container">
-      <div class="newsletter-panel">
-        <div>
-          <p class="eyebrow">STAY IN THE LOOP</p>
+  <section
+  id="newsletter"
+  class="section-space"
+  aria-labelledby="newsletter-heading"
+>
+  <div class="container">
+    <div class="newsletter-panel">
+      <div>
+        <p class="eyebrow">STAY IN THE LOOP</p>
 
-          <h2 id="newsletter-heading" class="section-title">
-            Stay Close to the Culture
-          </h2>
+        <h2 id="newsletter-heading" class="section-title">
+          Stay Close to the Culture
+        </h2>
 
-          <p class="text-muted-custom mb-0">
-            Product launches, offers and updates.
-            Newsletter signup is coming soon.
-          </p>
+        <p class="text-muted-custom">
+          Product launches, training essentials and offers.
+          Confirm your email to join the newsletter.
+        </p>
+      </div>
+
+      <form
+        action="/newsletter/subscribe"
+        method="POST"
+        class="newsletter-signup"
+      >
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+        <label for="newsletterEmail" class="form-label">
+          Email address
+        </label>
+
+        <input
+          id="newsletterEmail"
+          name="email"
+          type="email"
+          class="form-control"
+          autocomplete="email"
+          maxlength="254"
+          placeholder="you@example.com"
+          required
+        >
+
+        <div class="form-check my-3">
+          <input
+            id="newsletterConsent"
+            name="consent"
+            value="yes"
+            type="checkbox"
+            class="form-check-input"
+            required
+          >
+
+          <label for="newsletterConsent" class="form-check-label">
+            Email me Iron Culture product news and offers.
+            I can unsubscribe at any time.
+          </label>
         </div>
 
-        <span class="availability-label">Launching Soon</span>
-      </div>
+        <button type="submit" class="btn btn-brand w-100">
+          Join the Newsletter
+        </button>
+      </form>
     </div>
-  </section>
+  </div>
+</section>
 </main>
 
 <%- include("partials/footer") %>
