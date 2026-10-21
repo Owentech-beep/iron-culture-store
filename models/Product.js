@@ -17,8 +17,7 @@ function mapProduct(row) {
     brandName: row.brand_name,
 
     price: Number(row.price),
-    salePrice:
-      row.sale_price === null ? null : Number(row.sale_price),
+    salePrice: row.sale_price === null ? null : Number(row.sale_price),
 
     stock: Number(row.stock),
     imageUrl: row.image_url,
@@ -45,7 +44,7 @@ export function effectivePrice(product) {
 
 export async function getCategories() {
   const { rows } = await pool.query(
-    "SELECT id, name, slug FROM categories ORDER BY id"
+    "SELECT id, name, slug FROM categories ORDER BY id",
   );
 
   return rows;
@@ -57,7 +56,7 @@ export async function getBrands() {
      FROM brands
      WHERE ($1::BOOLEAN OR NOT is_demo)
      ORDER BY name`,
-    [includeDemo]
+    [includeDemo],
   );
 
   return rows;
@@ -66,10 +65,7 @@ export async function getBrands() {
 export async function findProducts(filters) {
   const values = [includeDemo];
 
-  const conditions = [
-    "is_active",
-    "($1::BOOLEAN OR NOT is_demo)",
-  ];
+  const conditions = ["is_active", "($1::BOOLEAN OR NOT is_demo)"];
 
   function addCondition(sql, value) {
     values.push(value);
@@ -80,7 +76,7 @@ export async function findProducts(filters) {
     // Literal substring search: % and _ are treated as ordinary text.
     addCondition(
       "STRPOS(LOWER(name || ' ' || brand_name), LOWER(?)) > 0",
-      filters.q
+      filters.q,
     );
   }
 
@@ -127,7 +123,7 @@ export async function findProducts(filters) {
     `SELECT COUNT(*)::INTEGER AS total
      FROM catalogue_products
      WHERE ${where}`,
-    values
+    values,
   );
 
   const total = countResult.rows[0].total;
@@ -143,7 +139,7 @@ export async function findProducts(filters) {
      ORDER BY ${orderBy}
      LIMIT $${values.length + 1}
      OFFSET $${values.length + 2}`,
-    [...values, pageSize, offset]
+    [...values, pageSize, offset],
   );
 
   return {
@@ -162,48 +158,70 @@ export async function findProductBySlug(slug) {
      WHERE slug = $1
        AND is_active
        AND ($2::BOOLEAN OR NOT is_demo)`,
-    [slug, includeDemo]
+    [slug, includeDemo],
   );
 
   if (result.rows.length === 0) return null;
 
   const product = mapProduct(result.rows[0]);
 
-  const [imagesResult, variantsResult, nutritionResult] =
-    await Promise.all([
-      pool.query(
-        `SELECT image_url
+  const labelResult = await pool.query(
+  `SELECT nutrition_image_url
+   FROM products
+   WHERE id = $1`,
+  [product.id],
+);
+
+product.nutritionImageUrl =
+  labelResult.rows[0]?.nutrition_image_url ?? null;
+
+  const [imagesResult, variantsResult, nutritionResult] = await Promise.all([
+    pool.query(
+      `SELECT image_url
          FROM product_images
          WHERE product_id = $1
          ORDER BY position, id`,
-        [product.id]
-      ),
-      pool.query(
-        `SELECT
-           v.id,
-           v.sku,
-           v.flavour,
-           COALESCE(i.quantity - i.reserved_quantity, 0) AS stock
-         FROM product_variants v
-         LEFT JOIN inventory i ON i.variant_id = v.id
-         WHERE v.product_id = $1 AND v.is_active
-         ORDER BY v.id`,
-        [product.id]
-      ),
-      pool.query(
-        `SELECT nutrient, amount
+      [product.id],
+    ),
+    pool.query(
+      `SELECT
+     v.id,
+     v.sku,
+     v.size,
+     v.flavour,
+     COALESCE(v.price, p.price) AS price,
+     CASE
+       WHEN v.price IS NOT NULL THEN v.sale_price
+       ELSE p.sale_price
+     END AS sale_price,
+     COALESCE(i.quantity - i.reserved_quantity, 0) AS stock
+   FROM product_variants v
+   JOIN products p ON p.id = v.product_id
+   LEFT JOIN inventory i ON i.variant_id = v.id
+   WHERE v.product_id = $1 AND v.is_active
+   ORDER BY v.id`,
+      [product.id],
+    ),
+    pool.query(
+      `SELECT nutrient, amount
          FROM product_nutrition
          WHERE product_id = $1
          ORDER BY position, id`,
-        [product.id]
-      ),
-    ]);
-
+      [product.id],
+    ),
+  ]);
+  const variants = variantsResult.rows.map((row) => ({
+    ...row,
+    stock: Number(row.stock),
+    price: Number(row.price),
+    salePrice: row.sale_price === null ? null : Number(row.sale_price),
+  }));
   return {
     ...product,
     images: imagesResult.rows.map((row) => row.image_url),
-    variants: variantsResult.rows,
-    flavours: variantsResult.rows.map((row) => row.flavour),
+    variants,
+    sizes: [...new Set(variants.map((variant) => variant.size))],
+    flavours: [...new Set(variants.map((variant) => variant.flavour))],
     nutrition: nutritionResult.rows,
     reviews: [],
   };
@@ -219,7 +237,7 @@ export async function findRelatedProducts(product, limit = 4) {
        AND ($3::BOOLEAN OR NOT is_demo)
      ORDER BY created_at DESC, id DESC
      LIMIT $4`,
-    [product.categorySlug, product.id, includeDemo, limit]
+    [product.categorySlug, product.id, includeDemo, limit],
   );
 
   return result.rows.map(mapProduct);
@@ -234,7 +252,7 @@ export async function getFeaturedProducts() {
        AND ($1::BOOLEAN OR NOT is_demo)
      ORDER BY created_at DESC, id DESC
      LIMIT 4`,
-    [includeDemo]
+    [includeDemo],
   );
 
   return result.rows.map(mapProduct);
@@ -251,7 +269,7 @@ export async function getDealProducts() {
      ORDER BY (price - sale_price) / NULLIF(price, 0) DESC,
               id DESC
      LIMIT 4`,
-    [includeDemo]
+    [includeDemo],
   );
 
   return result.rows.map(mapProduct);

@@ -1,4 +1,5 @@
 import { pool } from "../config/database.js";
+import { createSlug } from "../services/slugService.js";
 
 // Table names come only from this fixed list, never directly from input.
 const tables = {
@@ -34,45 +35,42 @@ export async function listCatalogueEntries(kind) {
 export async function saveCatalogueEntry(kind, id, data) {
   const table = getTable(kind);
 
-  if (kind === "brands") {
-    if (id) {
-      const result = await pool.query(
-        `UPDATE brands
-         SET name = $1, slug = $2, is_demo = $3
-         WHERE id = $4
-         RETURNING id`,
-        [data.name, data.slug, data.is_demo, id]
-      );
-
-      return result.rowCount;
-    }
-
-    await pool.query(
-      `INSERT INTO brands (name, slug, is_demo)
-       VALUES ($1, $2, $3)`,
-      [data.name, data.slug, data.is_demo]
-    );
-
-    return 1;
-  }
-
   if (id) {
-    const result = await pool.query(
-      `UPDATE ${table}
-       SET name = $1, slug = $2
-       WHERE id = $3
-       RETURNING id`,
-      [data.name, data.slug, id]
-    );
+    // Preserve the existing slug when renaming an entry.
+    const result = kind === "brands"
+      ? await pool.query(
+          `UPDATE brands
+           SET name = $1, is_demo = $2
+           WHERE id = $3
+           RETURNING id`,
+          [data.name, data.is_demo, id],
+        )
+      : await pool.query(
+          `UPDATE ${table}
+           SET name = $1
+           WHERE id = $2
+           RETURNING id`,
+          [data.name, id],
+        );
 
     return result.rowCount;
   }
 
-  await pool.query(
-    `INSERT INTO ${table} (name, slug)
-     VALUES ($1, $2)`,
-    [data.name, data.slug]
-  );
+  const slug = createSlug(data.name, 120);
 
-  return 1;
+  const result = kind === "brands"
+    ? await pool.query(
+        `INSERT INTO brands (name, slug, is_demo)
+         VALUES ($1, $2, $3)
+         RETURNING id`,
+        [data.name, slug, data.is_demo],
+      )
+    : await pool.query(
+        `INSERT INTO ${table} (name, slug)
+         VALUES ($1, $2)
+         RETURNING id`,
+        [data.name, slug],
+      );
+
+  return result.rowCount;
 }

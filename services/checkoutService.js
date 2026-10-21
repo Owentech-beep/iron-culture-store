@@ -28,6 +28,7 @@ export function cartFingerprint(cart) {
     id: item.id,
     revision: item.revision,
     variantId: item.variantId,
+    variantName: item.variantName,
     quantity: item.quantity,
     unitPriceCents: item.unitPriceCents,
     available: item.available,
@@ -77,7 +78,7 @@ export async function createPendingOrder(userId, draft) {
 
     if (cartFingerprint(cart) !== draft.fingerprint) {
       throw checkoutError(
-        "Your cart or its prices changed. Return to checkout and review the updated amounts."
+       "Your cart or its prices changed. Return to checkout and review the updated amounts."
       );
     }
 
@@ -139,7 +140,7 @@ export async function createPendingOrder(userId, draft) {
           orderId,
           item.variantId,
           item.name,
-          item.flavour,
+          item.variantName,
           item.quantity,
           item.unitPriceCents,
           item.lineTotalCents,

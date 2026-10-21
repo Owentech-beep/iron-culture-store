@@ -23,7 +23,7 @@
               <div>
                 <strong><%= item.name %></strong>
                 <p class="text-muted-custom mb-0">
-                  <%= item.flavour %> · Quantity <%= item.quantity %>
+                  <%= item.variantName ?? item.flavour %> · Quantity <%= item.quantity %>
                 </p>
               </div>
 
@@ -87,17 +87,21 @@
 
           <p class="text-muted-custom">
             <% if (shipping.status === "quote_required") { %>
-              A delivery quote is required before a final total can
-              be approved. No payment will be taken.
+              Submit your order to request a delivery quote.
+              You can review and accept the delivery charge from My Orders.
             <% } else { %>
-              This saves an unpaid pending order.
-              Payment is not available yet.
+              Submit your order to save it in My Orders.
             <% } %>
           </p>
 
           <p class="text-muted-custom">
-            Stock is not reserved. Availability will be checked again
-            before payment becomes available.
+            Online payments are currently unavailable.
+            Submitting this order will not charge you or confirm payment.
+          </p>
+
+          <p class="text-muted-custom">
+            Items are not reserved when you submit an order.
+            Stock availability will be checked again when you start payment.
           </p>
 
           <form action="/checkout/orders" method="POST">
@@ -110,9 +114,9 @@
             >
 
             <button class="btn btn-brand w-100" type="submit">
-              <%= shipping.status === "quote_required"
-                ? "Request Delivery Quote"
-                : "Save Pending Order" %>
+             <%= shipping.status === "quote_required"
+              ? "Request Delivery Quote"
+              : "Submit Order" %>
             </button>
           </form>
         </section>

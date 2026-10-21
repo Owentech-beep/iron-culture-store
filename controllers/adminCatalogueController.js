@@ -63,24 +63,12 @@ export async function saveCatalogue(req, res) {
 
   const data = {
     name: text(req.body.name),
-    slug: text(req.body.slug).toLowerCase(),
     is_demo: req.body.is_demo === "on",
   };
 
   if (!data.name || data.name.length > 100) {
     return renderProblem(res, "Enter a name of 1–100 characters.");
   }
-
-  if (
-    data.slug.length > 120 ||
-    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(data.slug)
-  ) {
-    return renderProblem(
-      res,
-      "Enter a slug of up to 120 lowercase letters, numbers and single hyphens."
-    );
-  }
-
   try {
     const changed = await saveCatalogueEntry(kind, id, data);
 
@@ -93,7 +81,7 @@ export async function saveCatalogue(req, res) {
     if (error.code === "23505") {
       return renderProblem(
         res,
-        "That slug is already in use. Go back and choose another."
+        "An entry with these details already exists. Refresh the page and check the list."
       );
     }
 

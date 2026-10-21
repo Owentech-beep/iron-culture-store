@@ -30,6 +30,7 @@ export async function getCart(userId, db = pool) {
        ci.revision,
        v.id AS variant_id,
        v.flavour,
+       v.size,
        p.name,
        p.slug,
        p.is_demo,
@@ -42,9 +43,12 @@ export async function getCart(userId, db = pool) {
        ) AS available,
 
        (
-         COALESCE(p.sale_price, p.price) * 100
-       )::BIGINT AS unit_price_cents
-
+        CASE
+          WHEN v.price IS NOT NULL
+            THEN COALESCE(v.sale_price, v.price)
+          ELSE COALESCE(p.sale_price, p.price)
+        END * 100
+      )::BIGINT AS unit_price_cents
      FROM carts c
      JOIN cart_items ci ON ci.cart_id = c.id
      JOIN product_variants v ON v.id = ci.variant_id
@@ -57,6 +61,7 @@ export async function getCart(userId, db = pool) {
 
   const items = rows.map((row) => {
     const unitPriceCents = Number(row.unit_price_cents);
+    const variantName = [row.size, row.flavour].filter(Boolean).join(" · ");
 
     return {
       id: row.id,
@@ -64,7 +69,12 @@ export async function getCart(userId, db = pool) {
       variantId: row.variant_id,
       name: row.name,
       slug: row.slug,
-      flavour: row.flavour,
+      size: row.size,
+      flavourName: row.flavour,
+      variantName,
+
+      // Existing cart/review templates display this property.
+      flavour: variantName,
       quantity: row.quantity,
       stock: row.stock,
       available: row.available,

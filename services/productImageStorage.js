@@ -20,7 +20,7 @@ function configureCloudinary() {
 }
 
 export async function uploadProductImage(buffer, imageKind = "products") {
-  if (!["products", "brands"].includes(imageKind)) {
+  if (!["products", "brands", "nutrition"].includes(imageKind)) {
     throw new Error("Unsupported image category.");
   }
 

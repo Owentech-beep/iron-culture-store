@@ -9,6 +9,7 @@ import {
   updateAdminStock,
 } from "../models/AdminProduct.js";
 import { isAllowedProductImageUrl } from "../services/productImageStorage.js";
+import { createSlug } from "../services/slugService.js";
 
 function text(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -48,7 +49,6 @@ function formatMoney(value) {
 function readProduct(body) {
   const data = {
     name: text(body.name),
-    slug: text(body.slug).toLowerCase(),
     category_id: positiveId(body.category_id),
     brand_id: positiveId(body.brand_id),
     price: text(body.price),
@@ -68,13 +68,6 @@ function readProduct(body) {
   if (data.name.length < 2 || data.name.length > 180) {
     errors.push("Product name must contain 2–180 characters.");
   }
-
-  if (data.slug.length > 160 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(data.slug)) {
-    errors.push(
-      "Use a URL slug of up to 160 lowercase letters, numbers and single hyphens.",
-    );
-  }
-
   if (!data.category_id || !data.brand_id) {
     errors.push("Choose a category and a brand.");
   }
@@ -171,7 +164,7 @@ export async function showNewProduct(req, res) {
   return renderForm(res, {
     is_active: false,
     is_featured: false,
-    is_demo: true,
+    is_demo: false,
     variants: [],
   });
 }
@@ -201,6 +194,8 @@ export async function saveProduct(req, res) {
   }
 
   const { data, errors } = readProduct(req.body);
+  // Names may change; established product URLs stay the same.
+  data.slug = existing?.slug ?? createSlug(data.name, 160);
 
   const values = {
     ...data,
@@ -220,7 +215,9 @@ export async function saveProduct(req, res) {
       return renderForm(
         res,
         values,
-        ["That URL slug is already used by another product."],
+        [
+          "A product with these details already exists. Refresh and check the product list.",
+        ],
         400,
       );
     }
@@ -252,30 +249,65 @@ export async function archiveProduct(req, res) {
 export async function addVariant(req, res) {
   const id = positiveId(req.params.id);
   const product = id ? await getAdminProduct(id) : null;
-  const flavour = text(req.body.flavour);
 
   if (!product) {
     return showAdminError(res, "Product not found.", 404);
   }
 
-  if (!flavour || flavour.length > 100) {
-    return renderForm(
-      res,
-      product,
-      ["Enter an option name of 1–100 characters."],
-      400,
+  const size = text(req.body.size).replace(/\s+/g, " ");
+  const flavour = text(req.body.flavour).replace(/\s+/g, " ") || "Unflavoured";
+  const price = text(req.body.price);
+  const salePrice = text(req.body.sale_price);
+
+  const errors = [];
+  const regularCents = priceCents(price);
+  const saleCents = salePrice ? priceCents(salePrice) : null;
+
+  if (!size || size.length > 80) {
+    errors.push(
+      "Enter a size of up to 80 characters, such as 1 kg or 60 capsules.",
     );
   }
 
+  if (flavour.length > 100) {
+    errors.push("Flavour must contain no more than 100 characters.");
+  }
+
+  if (regularCents === null || regularCents <= 0) {
+    errors.push("Enter an option price greater than zero.");
+  }
+
+  if (
+    salePrice &&
+    (saleCents === null ||
+      saleCents <= 0 ||
+      regularCents === null ||
+      saleCents >= regularCents)
+  ) {
+    errors.push(
+      "The option sale price must be greater than zero and below its regular price.",
+    );
+  }
+
+  if (errors.length) {
+    return renderForm(res, product, errors, 400);
+  }
+
   try {
-    await addAdminVariant(id, flavour);
+    await addAdminVariant(id, {
+      size,
+      flavour,
+      price,
+      salePrice,
+    });
+
     return res.redirect(303, `/admin/products/${id}/edit`);
   } catch (error) {
     if (error.code === "23505") {
       return renderForm(
         res,
         product,
-        ["This option already exists for the product."],
+        ["This size and flavour combination already exists."],
         400,
       );
     }

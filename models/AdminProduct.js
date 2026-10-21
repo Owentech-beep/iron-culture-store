@@ -64,6 +64,9 @@ export async function getAdminProduct(id) {
     `SELECT
        v.id,
        v.flavour,
+       v.size,
+       v.price,
+       v.sale_price,
        v.sku,
        v.is_active,
        COALESCE(i.quantity, 0) AS quantity
@@ -181,17 +184,34 @@ export async function archiveAdminProduct(id) {
   await pool.query("UPDATE products SET is_active = FALSE WHERE id = $1", [id]);
 }
 
-export async function addAdminVariant(productId, flavour) {
+export async function addAdminVariant(
+  productId,
+  { size, flavour, price, salePrice },
+) {
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
 
     const result = await client.query(
-      `INSERT INTO product_variants (product_id, sku, flavour)
-       VALUES ($1, $2, $3)
+      `INSERT INTO product_variants (
+         product_id,
+         sku,
+         size,
+         flavour,
+         price,
+         sale_price
+       )
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id`,
-      [productId, `IC-${randomUUID().toUpperCase()}`, flavour],
+      [
+        productId,
+        `IC-${randomUUID().toUpperCase()}`,
+        size,
+        flavour,
+        price,
+        salePrice || null,
+      ],
     );
 
     await client.query(
@@ -202,7 +222,7 @@ export async function addAdminVariant(productId, flavour) {
 
     await client.query("COMMIT");
   } catch (error) {
-    await client.query("ROLLBACK");
+    await client.query("ROLLBACK").catch(() => {});
     throw error;
   } finally {
     client.release();
@@ -214,6 +234,9 @@ export async function listAdminInventory(search) {
     `SELECT
        v.id,
        v.flavour,
+       v.size,
+       v.price,
+       v.sale_price,
        v.sku,
        p.id AS product_id,
        p.name AS product_name,

@@ -32,7 +32,7 @@
   <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 
   <div class="row g-3">
-    <div class="col-md-6">
+    <div class="col-md-12">
       <label for="name" class="form-label">Product name</label>
       <input
         id="name"
@@ -42,22 +42,6 @@
         value="<%= values.name || '' %>"
         required
       >
-    </div>
-
-    <div class="col-md-6">
-      <label for="slug" class="form-label">URL slug</label>
-      <input
-        id="slug"
-        name="slug"
-        class="form-control"
-        maxlength="160"
-        placeholder="demo-protein-chocolate"
-        value="<%= values.slug || '' %>"
-        required
-      >
-      <p class="auth-help">
-        Keep an established slug unchanged to preserve product links.
-      </p>
     </div>
 
     <div class="col-md-6">
@@ -192,27 +176,41 @@
 
 <% if (values.id) { %>
   <section class="admin-panel p-4 mt-4">
-    <h2 class="h5 mb-3">Product Options</h2>
+    <h2 class="h5 mb-3">Sizes and Flavours</h2>
 
     <p class="text-muted-custom">
-      Each flavour or option has its own SKU and stock.
-      For a product without flavours, use an option such as “Standard”.
+      Each size and flavour combination has its own price, SKU and stock.
+      Leave flavour blank for unflavoured products.
     </p>
 
     <div class="table-responsive mb-4">
       <table class="table admin-table">
         <thead>
           <tr>
-            <th>Option</th>
-            <th>SKU</th>
-            <th>Stock</th>
+            <th scope="col">Size</th>
+            <th scope="col">Flavour</th>
+            <th scope="col">Regular Price</th>
+            <th scope="col">Sale Price</th>
+            <th scope="col">SKU</th>
+            <th scope="col">Physical Stock</th>
           </tr>
         </thead>
 
         <tbody>
           <% values.variants.forEach((variant) => { %>
             <tr>
+              <td><%= variant.size || "Size not assigned" %></td>
               <td><%= variant.flavour %></td>
+              <td>
+                <%= variant.price == null
+                  ? "Uses product price"
+                  : `R ${Number(variant.price).toFixed(2)}` %>
+              </td>
+              <td>
+                <%= variant.sale_price == null
+                  ? "—"
+                  : `R ${Number(variant.sale_price).toFixed(2)}` %>
+              </td>
               <td class="admin-sku"><%= variant.sku %></td>
               <td><%= variant.quantity %></td>
             </tr>
@@ -220,7 +218,9 @@
 
           <% if (values.variants.length === 0) { %>
             <tr>
-              <td colspan="3">Add an option before stocking this product.</td>
+              <td colspan="6">
+                Add a size and flavour combination before stocking this product.
+              </td>
             </tr>
           <% } %>
         </tbody>
@@ -234,19 +234,82 @@
     >
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 
-      <label for="flavour" class="form-label">New option name</label>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label for="variantSize" class="form-label">Size</label>
+          <input
+            id="variantSize"
+            name="size"
+            class="form-control"
+            list="supplementSizes"
+            maxlength="80"
+            placeholder="Choose or enter a size"
+            required
+          >
 
-      <div class="admin-search">
-        <input
-          id="flavour"
-          name="flavour"
-          class="form-control"
-          maxlength="100"
-          placeholder="Chocolate / Vanilla / Standard"
-          required
-        >
+          <datalist id="supplementSizes">
+            <option value="250 g">
+            <option value="500 g">
+            <option value="1 kg">
+            <option value="2 kg">
+            <option value="30 capsules">
+            <option value="60 capsules">
+            <option value="120 capsules">
+            <option value="30 tablets">
+            <option value="60 tablets">
+            <option value="30 servings">
+          </datalist>
+        </div>
 
-        <button type="submit" class="btn btn-brand">Add Option</button>
+        <div class="col-md-6">
+          <label for="variantFlavour" class="form-label">
+            Flavour (optional)
+          </label>
+          <input
+            id="variantFlavour"
+            name="flavour"
+            class="form-control"
+            maxlength="100"
+            placeholder="Chocolate, Vanilla, or leave blank"
+          >
+        </div>
+
+        <div class="col-md-6">
+          <label for="variantPrice" class="form-label">
+            Price for this option (R)
+          </label>
+          <input
+            id="variantPrice"
+            name="price"
+            type="number"
+            class="form-control"
+            min="0.01"
+            max="9999999.99"
+            step="0.01"
+            required
+          >
+        </div>
+
+        <div class="col-md-6">
+          <label for="variantSalePrice" class="form-label">
+            Sale price for this option (optional)
+          </label>
+          <input
+            id="variantSalePrice"
+            name="sale_price"
+            type="number"
+            class="form-control"
+            min="0.01"
+            max="9999999.99"
+            step="0.01"
+          >
+        </div>
+
+        <div class="col-12">
+          <button type="submit" class="btn btn-brand">
+            Add Size and Flavour
+          </button>
+        </div>
       </div>
     </form>
 
@@ -256,7 +319,7 @@
   </section>
 <% } else { %>
   <p class="text-muted-custom mt-3">
-    Save the product first, then add its options and stock.
+    Save the product first, then add its sizes, flavours and stock.
   </p>
 <% } %>
 
@@ -318,6 +381,85 @@
       </p>
     </noscript>
   </section>
+
+  <% if (values.id) { %>
+  <section class="admin-panel p-4 mt-4">
+    <h2 class="h5 mb-3">Nutrition Label</h2>
+
+    <p class="text-muted-custom">
+      Upload a clear manufacturer nutrition label.
+      Use a shared label only when it applies to every size and flavour.
+      Save other product edits before uploading.
+    </p>
+
+    <% if (values.nutrition_image_url) { %>
+      <a
+        href="<%= values.nutrition_image_url %>"
+        target="_blank"
+        rel="noopener"
+      >
+        <img
+          src="<%= values.nutrition_image_url %>"
+          alt="Current nutrition label"
+          class="img-fluid mb-3"
+          style="max-height: 400px; object-fit: contain;"
+        >
+      </a>
+    <% } %>
+
+    <form
+      action="/admin/products/<%= values.id %>/nutrition-image"
+      method="POST"
+      enctype="multipart/form-data"
+      class="admin-form"
+      data-nutrition-form
+      data-csrf="<%= csrfToken %>"
+    >
+      <label for="nutritionImageFile" class="form-label">
+        JPEG, PNG or WebP — maximum 5 MB
+      </label>
+
+      <input
+        id="nutritionImageFile"
+        name="image"
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        class="form-control mb-3"
+        required
+      >
+
+      <button type="submit" class="btn btn-brand">
+        <%= values.nutrition_image_url ? "Replace Label" : "Upload Label" %>
+      </button>
+
+      <p data-upload-status role="status" aria-live="polite"
+         class="text-muted-custom mt-3 mb-0"></p>
+    </form>
+
+    <% if (values.nutrition_image_url) { %>
+      <form
+        action="/admin/products/<%= values.id %>/nutrition-image/remove"
+        method="POST"
+        class="mt-3"
+        data-nutrition-form
+        data-csrf="<%= csrfToken %>"
+      >
+        <button type="submit" class="btn btn-outline-danger">
+          Remove Label
+        </button>
+
+        <p data-upload-status role="status" aria-live="polite"
+           class="text-muted-custom mt-2 mb-0"></p>
+      </form>
+    <% } %>
+
+    <noscript>
+      <p>Enable JavaScript to upload or remove nutrition labels.</p>
+    </noscript>
+  </section>
+
+  <script src="/js/admin-nutrition.js" defer></script>
+<% } %>
 
   <script src="/js/admin-image.js" defer></script>
 <% } %>

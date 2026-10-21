@@ -34,6 +34,11 @@ import { uploadBrandLogo } from "../controllers/adminBrandLogoController.js";
 import {
   deleteCatalogueRecord,
 } from "../controllers/adminDeletionController.js";
+import {
+  uploadNutritionImage,
+  removeNutritionImage,
+} from "../controllers/adminNutritionController.js";
+
 const router = Router();
 
 router.use(requireAuth);
@@ -82,5 +87,15 @@ router.post(
   uploadBrandLogo,
 );
 router.post("/cleanup/:kind/:id", deleteCatalogueRecord);
+router.post(
+  "/products/:id/nutrition-image",
+  receiveProductImage,
+  uploadNutritionImage,
+);
+
+router.post(
+  "/products/:id/nutrition-image/remove",
+  removeNutritionImage,
+);
 
 export default router;

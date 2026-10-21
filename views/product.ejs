@@ -74,17 +74,20 @@
             <% } %>
           </p>
 
-          <div class="product-detail-price">
-            <strong>
+         <div class="product-detail-price" aria-live="polite">
+            <strong id="selectedProductPrice">
               <%= formatMoney(product.salePrice ?? product.price) %>
             </strong>
 
-            <% if (
-              product.salePrice != null &&
-              product.salePrice < product.price
-            ) { %>
-              <del><%= formatMoney(product.price) %></del>
-            <% } %>
+            <del
+              id="selectedProductRegularPrice"
+              <% if (
+                product.salePrice == null ||
+                product.salePrice >= product.price
+              ) { %>hidden<% } %>
+            >
+              <%= formatMoney(product.price) %>
+            </del>
           </div>
 
           <p class="product-availability">
@@ -100,30 +103,59 @@
             <form action="/cart/items" method="POST" class="purchase-panel">
                 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 
+                <div id="separateProductOptions" hidden>
                 <div class="mb-3">
-                <label for="productFlavour" class="form-label">
-                    Product Option
+                  <label for="productSize" class="form-label">Size</label>
+                  <select id="productSize" class="form-select product-select">
+                    <option value="">Choose a size</option>
+                  </select>
+                </div>
+
+                <div id="productFlavourGroup" class="mb-3">
+                  <label for="productFlavour" class="form-label">Flavour</label>
+                  <select id="productFlavour" class="form-select product-select">
+                    <option value="">Choose a size first</option>
+                  </select>
+                </div>
+              </div>
+
+              <div id="combinedProductOptions" class="mb-3">
+                <label for="productVariant" class="form-label">
+                  Size and flavour
                 </label>
 
                 <select
-                    id="productFlavour"
-                    name="variantId"
-                    class="form-select product-select"
-                    required
+                  id="productVariant"
+                  name="variantId"
+                  class="form-select product-select"
+                  required
                 >
-                    <option value="">Choose an option</option>
+                  <option value="">Choose an option</option>
 
-                    <% product.variants.forEach((variant) => { %>
+                  <% product.variants.forEach((variant) => { %>
                     <option
-                        value="<%= variant.id %>"
-                        data-stock="<%= variant.stock %>"
-                        <%= variant.stock <= 0 ? "disabled" : "" %>
+                      value="<%= variant.id %>"
+                      data-size="<%= variant.size || '' %>"
+                      data-flavour="<%= variant.flavour %>"
+                      data-stock="<%= variant.stock %>"
+                      data-price="<%= variant.price %>"
+                      data-sale-price="<%= variant.salePrice ?? '' %>"
+                      <%= variant.stock <= 0 ? "disabled" : "" %>
                     >
-                        <%= variant.flavour %>
-                        <%= variant.stock > 0 ? "" : " — Out of stock" %>
+                      <%= [variant.size, variant.flavour].filter(Boolean).join(" · ") %>
+                      — <%= formatMoney(variant.salePrice ?? variant.price) %>
+                      <%= variant.stock <= 0 ? " — Out of stock" : "" %>
                     </option>
-                    <% }); %>
+                  <% }); %>
                 </select>
+              </div>
+
+              <p
+                id="variantStock"
+                class="text-muted-custom mb-3"
+                role="status"
+                aria-live="polite"
+              ></p>
 
                 <p
                     id="variantStock"
@@ -157,6 +189,7 @@
                 <% } %>
 
                 <button
+                 id="addToCartButton"
                 class="btn btn-brand w-100"
                 type="submit"
                 <%= product.stock <= 0 ? "disabled" : "" %>
@@ -195,7 +228,24 @@
       <section id="product-nutrition" class="product-info-section">
         <h2>Nutrition Facts</h2>
 
-        <% if (nutrition.length > 0) { %>
+       <% if (product.nutritionImageUrl) { %>
+          <p>Select the label to open a larger image.</p>
+
+          <a
+            href="<%= product.nutritionImageUrl %>"
+            target="_blank"
+            rel="noopener"
+            aria-label="Open nutrition label for <%= product.name %> in a new tab"
+          >
+            <img
+              src="<%= product.nutritionImageUrl %>"
+              alt="Manufacturer nutrition label for <%= product.name %>"
+              class="img-fluid"
+              loading="lazy"
+              style="max-height: 800px; object-fit: contain;"
+            >
+          </a>
+        <% } else if (nutrition.length > 0) { %>
           <% if (product.servingSize) { %>
             <p>Serving size: <%= product.servingSize %></p>
           <% } %>
@@ -260,10 +310,6 @@
             <% }); %>
           </div>
         <% } %>
-
-        <p class="review-availability">
-          Review submissions will be available after customer accounts launch.
-        </p>
       </section>
     </div>
 
