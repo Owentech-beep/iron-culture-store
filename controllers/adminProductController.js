@@ -40,6 +40,10 @@ function priceCents(value) {
 }
 
 function formatMoney(value) {
+  if (value === null || value === undefined) {
+    return "Add priced options";
+  }
+
   return new Intl.NumberFormat("en-ZA", {
     style: "currency",
     currency: "ZAR",
@@ -51,8 +55,6 @@ function readProduct(body) {
     name: text(body.name),
     category_id: positiveId(body.category_id),
     brand_id: positiveId(body.brand_id),
-    price: text(body.price),
-    sale_price: text(body.sale_price),
     short_description: text(body.short_description),
     description: text(body.description),
     ingredients: text(body.ingredients),
@@ -70,25 +72,6 @@ function readProduct(body) {
   }
   if (!data.category_id || !data.brand_id) {
     errors.push("Choose a category and a brand.");
-  }
-
-  const regularCents = priceCents(data.price);
-  const saleCents = data.sale_price ? priceCents(data.sale_price) : null;
-
-  if (regularCents === null || regularCents <= 0) {
-    errors.push("Enter a price greater than zero with up to two decimals.");
-  }
-
-  if (
-    data.sale_price &&
-    (saleCents === null ||
-      saleCents <= 0 ||
-      regularCents === null ||
-      saleCents >= regularCents)
-  ) {
-    errors.push(
-      "Sale price must be greater than zero and below the regular price.",
-    );
   }
 
   for (const key of [
@@ -229,6 +212,10 @@ export async function saveProduct(req, res) {
         ["The selected category or brand no longer exists."],
         400,
       );
+    }
+
+    if (error.status === 409 && error.publicMessage) {
+      return renderForm(res, values, [error.publicMessage], 409);
     }
 
     throw error;

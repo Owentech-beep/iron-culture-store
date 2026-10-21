@@ -1,9 +1,10 @@
 <%
   const hasDiscount =
-    product.salePrice !== null &&
-    product.salePrice !== undefined &&
-    product.price > 0 &&
-    product.salePrice < product.price;
+  !product.hasMultipleVariants &&
+  product.salePrice !== null &&
+  product.salePrice !== undefined &&
+  product.price > 0 &&
+  product.salePrice < product.price;
 
   const discountPercent = hasDiscount
     ? Math.floor(
@@ -61,16 +62,13 @@
       <% } %>
     </p>
 
-    <div class="product-price">
+   <div class="product-price">
       <strong>
+        <%= product.hasMultipleVariants ? "From " : "" %>
         <%= formatMoney(product.salePrice ?? product.price) %>
       </strong>
 
-      <% if (
-        product.salePrice !== null &&
-        product.salePrice !== undefined &&
-        product.salePrice < product.price
-      ) { %>
+      <% if (hasDiscount) { %>
         <del><%= formatMoney(product.price) %></del>
       <% } %>
     </div>

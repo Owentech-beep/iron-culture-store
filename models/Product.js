@@ -16,8 +16,10 @@ function mapProduct(row) {
     brandSlug: row.brand_slug,
     brandName: row.brand_name,
 
-    price: Number(row.price),
-    salePrice: row.sale_price === null ? null : Number(row.sale_price),
+    price: row.display_price == null ? null : Number(row.display_price),
+    salePrice:
+      row.display_sale_price == null ? null : Number(row.display_sale_price),
+    hasMultipleVariants: Number(row.variant_count) > 1,
 
     stock: Number(row.stock),
     imageUrl: row.image_url,
@@ -65,7 +67,11 @@ export async function getBrands() {
 export async function findProducts(filters) {
   const values = [includeDemo];
 
-  const conditions = ["is_active", "($1::BOOLEAN OR NOT is_demo)"];
+  const conditions = [
+    "is_active",
+    "($1::BOOLEAN OR NOT is_demo)",
+    "effective_price IS NOT NULL",
+  ];
 
   function addCondition(sql, value) {
     values.push(value);
@@ -154,10 +160,11 @@ export async function findProducts(filters) {
 export async function findProductBySlug(slug) {
   const result = await pool.query(
     `SELECT *
-     FROM catalogue_products
-     WHERE slug = $1
-       AND is_active
-       AND ($2::BOOLEAN OR NOT is_demo)`,
+    FROM catalogue_products
+    WHERE slug = $1
+    AND is_active
+    AND effective_price IS NOT NULL
+    AND ($2::BOOLEAN OR NOT is_demo)`,
     [slug, includeDemo],
   );
 
@@ -166,14 +173,13 @@ export async function findProductBySlug(slug) {
   const product = mapProduct(result.rows[0]);
 
   const labelResult = await pool.query(
-  `SELECT nutrition_image_url
+    `SELECT nutrition_image_url
    FROM products
    WHERE id = $1`,
-  [product.id],
-);
+    [product.id],
+  );
 
-product.nutritionImageUrl =
-  labelResult.rows[0]?.nutrition_image_url ?? null;
+  product.nutritionImageUrl = labelResult.rows[0]?.nutrition_image_url ?? null;
 
   const [imagesResult, variantsResult, nutritionResult] = await Promise.all([
     pool.query(
@@ -248,6 +254,7 @@ export async function getFeaturedProducts() {
     `SELECT *
      FROM catalogue_products
      WHERE is_active
+       AND effective_price IS NOT NULL
        AND is_featured
        AND ($1::BOOLEAN OR NOT is_demo)
      ORDER BY created_at DESC, id DESC
@@ -261,14 +268,17 @@ export async function getFeaturedProducts() {
 export async function getDealProducts() {
   const result = await pool.query(
     `SELECT *
-     FROM catalogue_products
-     WHERE is_active
-       AND sale_price IS NOT NULL
-       AND sale_price < price
-       AND ($1::BOOLEAN OR NOT is_demo)
-     ORDER BY (price - sale_price) / NULLIF(price, 0) DESC,
-              id DESC
-     LIMIT 4`,
+ FROM catalogue_products
+ WHERE is_active
+   AND effective_price IS NOT NULL
+   AND display_sale_price IS NOT NULL
+   AND display_sale_price < display_price
+   AND ($1::BOOLEAN OR NOT is_demo)
+ ORDER BY
+   (display_price - display_sale_price)
+   / NULLIF(display_price, 0) DESC,
+   id DESC
+ LIMIT 4`,
     [includeDemo],
   );
 

@@ -86,6 +86,10 @@
                 product.salePrice >= product.price
               ) { %>hidden<% } %>
             >
+            <strong id="selectedProductPrice">
+              <%= product.hasMultipleVariants ? "From " : "" %>
+              <%= formatMoney(product.salePrice ?? product.price) %>
+            </strong>
               <%= formatMoney(product.price) %>
             </del>
           </div>

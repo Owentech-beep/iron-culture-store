@@ -17,8 +17,11 @@ export async function listAdminProducts(search, requestedPage) {
   const page = Math.min(requestedPage, totalPages);
 
   const result = await pool.query(
-    `SELECT *
-     FROM catalogue_products
+    `SELECT
+      catalogue_products.*,
+      display_price AS price,
+      display_sale_price AS sale_price
+      FROM catalogue_products
      WHERE name ILIKE $1 OR slug ILIKE $1
      ORDER BY id DESC
      LIMIT $2 OFFSET $3`,
@@ -94,13 +97,10 @@ export async function saveAdminProduct(id, data) {
       data.slug,
       data.category_id,
       data.brand_id,
-      data.price,
-      data.sale_price || null,
       data.short_description,
       data.description,
       data.ingredients,
       data.allergens,
-      data.is_active,
       data.is_featured,
       data.is_demo,
     ];
@@ -114,18 +114,16 @@ export async function saveAdminProduct(id, data) {
            slug = $2,
            category_id = $3,
            brand_id = $4,
-           price = $5,
-           sale_price = $6,
-           short_description = $7,
-           description = $8,
-           ingredients = $9,
-           allergens = $10,
-           is_active = $11,
-           is_featured = $12,
-           is_demo = $13
-         WHERE id = $14
+           short_description = $5,
+           description = $6,
+           ingredients = $7,
+           allergens = $8,
+           is_featured = $9,
+           is_demo = $10,
+           is_active = $11
+         WHERE id = $12
          RETURNING id`,
-        [...values, id],
+        [...values, data.is_active, id],
       );
 
       if (!result.rows[0]) {
@@ -136,22 +134,44 @@ export async function saveAdminProduct(id, data) {
 
       productId = result.rows[0].id;
     } else {
+      // Save new products as drafts until their options are ready.
       const result = await client.query(
         `INSERT INTO products (
            name, slug, category_id, brand_id,
-           price, sale_price, short_description,
-           description, ingredients, allergens,
-           is_active, is_featured, is_demo
+           short_description, description, ingredients, allergens,
+           is_featured, is_demo, is_active, price, sale_price
          )
          VALUES (
-           $1, $2, $3, $4, $5, $6, $7,
-           $8, $9, $10, $11, $12, $13
+           $1, $2, $3, $4, $5, $6, $7, $8,
+           $9, $10, FALSE, NULL, NULL
          )
          RETURNING id`,
         values,
       );
 
       productId = result.rows[0].id;
+    }
+
+    if (id && data.is_active) {
+      const options = await client.query(
+        `SELECT id
+         FROM product_variants
+         WHERE product_id = $1
+           AND is_active
+           AND price > 0
+           AND BTRIM(size) <> ''
+         LIMIT 1`,
+        [productId],
+      );
+
+      if (!options.rowCount) {
+        const error = new Error(
+          "Add an active option with a size and price before publishing.",
+        );
+        error.status = 409;
+        error.publicMessage = error.message;
+        throw error;
+      }
     }
 
     if (data.image_url) {
@@ -173,7 +193,7 @@ export async function saveAdminProduct(id, data) {
     await client.query("COMMIT");
     return productId;
   } catch (error) {
-    await client.query("ROLLBACK");
+    await client.query("ROLLBACK").catch(() => {});
     throw error;
   } finally {
     client.release();
