@@ -31,7 +31,9 @@ import {
 } from "../controllers/adminCustomerController.js";
 import { receiveBrandLogo } from "../middleware/brandLogoUploadMiddleware.js";
 import { uploadBrandLogo } from "../controllers/adminBrandLogoController.js";
-
+import {
+  deleteCatalogueRecord,
+} from "../controllers/adminDeletionController.js";
 const router = Router();
 
 router.use(requireAuth);
@@ -79,4 +81,6 @@ router.post(
   receiveBrandLogo,
   uploadBrandLogo,
 );
+router.post("/cleanup/:kind/:id", deleteCatalogueRecord);
+
 export default router;

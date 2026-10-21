@@ -192,6 +192,10 @@
           </form>
         </div>
       <% } %>
+      <%- include("partials/delete-record", {
+        deleteKind: kind,
+        deleteEntry: entry
+      }) %>
   </section>
 <% }); %>
 <% if (kind === "brands") { %>

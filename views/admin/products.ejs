@@ -93,6 +93,12 @@
                   </form>
                 <% } %>
               </div>
+              <% if (!product.is_active) { %>
+                <%- include("partials/delete-record", {
+                  deleteKind: "products",
+                  deleteEntry: product
+                }) %>
+              <% } %>
             </td>
           </tr>
         <% }); %>

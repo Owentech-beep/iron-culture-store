@@ -1,0 +1,48 @@
+<details class="mt-3">
+  <summary class="text-danger">
+    Permanently delete
+  </summary>
+
+  <form
+    action="/admin/cleanup/<%= deleteKind %>/<%= deleteEntry.id %>"
+    method="POST"
+    class="mt-3"
+  >
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+    <input
+      type="hidden"
+      name="expectedSlug"
+      value="<%= deleteEntry.slug %>"
+    >
+
+    <p class="text-muted-custom small">
+      Delete <strong><%= deleteEntry.name %></strong> permanently.
+      This cannot be undone through the admin dashboard.
+      Records with dependencies cannot be deleted.
+    </p>
+
+    <label
+      for="delete-<%= deleteKind %>-<%= deleteEntry.id %>"
+      class="form-label"
+    >
+      Type DELETE to confirm
+    </label>
+
+    <input
+      id="delete-<%= deleteKind %>-<%= deleteEntry.id %>"
+      name="confirmation"
+      type="text"
+      class="form-control mb-2"
+      autocomplete="off"
+      spellcheck="false"
+      pattern="DELETE"
+      maxlength="6"
+      required
+    >
+
+    <button type="submit" class="btn btn-outline-danger">
+      Delete Permanently
+    </button>
+  </form>
+</details>
