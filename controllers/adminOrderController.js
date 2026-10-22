@@ -12,7 +12,7 @@ import {
 } from "../models/SandboxRecovery.js";
 import {
   listPaymentReconciliationAlerts,
-  resolveSuccessfulSandboxAlert,
+  resolveSuccessfulPaymentAlert,
 } from "../models/PaymentReconciliation.js";
 
 function formatMoney(cents) {
@@ -51,9 +51,6 @@ export async function showAdminOrder(req, res) {
   const order = validId ? await findAdminOrder(Number(req.params.id)) : null;
 
   if (!order) {
-    const reconciliationAlerts = await listPaymentReconciliationAlerts(
-      order.id,
-    );
     return res.status(404).render("error", {
       pageTitle: "Order Not Found | Iron Culture",
       metaDescription: "This order could not be found.",
@@ -63,10 +60,18 @@ export async function showAdminOrder(req, res) {
     });
   }
   const history = await getOrderStatusHistory(order.id);
-  const allowedStatuses = availableOrderStatuses(order);
-  const recoverableAttempts = await listRecoverableSandboxAttempts(order.id);
-  const reconciliationAlerts =
-  await listPaymentReconciliationAlerts(order.id);
+  const canRecoverSandbox =
+    process.env.NODE_ENV === "development" &&
+    process.env.PAYFAST_MODE?.trim() === "sandbox" &&
+    order.is_demo;
+
+  const recoverableAttempts = canRecoverSandbox
+    ? await listRecoverableSandboxAttempts(order.id)
+    : [];
+  const reconciliationAlerts = await listPaymentReconciliationAlerts(order.id);
+
+  const allowedStatuses =
+    reconciliationAlerts.length > 0 ? [] : availableOrderStatuses(order);
 
   res.render("admin/order-details", {
     pageTitle: "Order Details | Iron Culture Admin",
@@ -287,15 +292,14 @@ export async function submitReconciliationResolution(req, res) {
     return reject("Invalid order or alert. Refresh the page.");
   }
 
-  const note =
-    typeof req.body.note === "string" ? req.body.note.trim() : "";
+  const note = typeof req.body.note === "string" ? req.body.note.trim() : "";
 
   if (note.length < 10 || note.length > 300) {
     return reject("Enter a resolution note of 10–300 characters.");
   }
 
   try {
-    await resolveSuccessfulSandboxAlert({
+    await resolveSuccessfulPaymentAlert({
       orderId: Number(req.params.id),
       alertId: Number(req.params.alertId),
       adminId: req.user.id,

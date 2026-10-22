@@ -63,23 +63,31 @@
         </div>
       <% } %>
 
-      <% if (canStartSandbox) { %>
-        <div class="demo-notice">
-          Sandbox testing only. No real money will be collected.
-        </div>
+            <% if (canStartPayment) { %>
+          <% if (paymentMode === "sandbox") { %>
+            <div class="demo-notice">
+              Sandbox testing only. No real money will be collected.
+            </div>
+          <% } else { %>
+            <p class="text-muted-custom">
+              Continue to PayFast to pay securely for this order.
+            </p>
+          <% } %>
 
-        <form
-          action="/orders/<%= order.id %>/payment/sandbox"
-          method="POST"
-          class="mb-3"
-        >
-          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <form
+            action="/orders/<%= order.id %>/payment/payfast"
+            method="POST"
+            class="mb-3"
+          >
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 
-          <button type="submit" class="btn btn-brand w-100">
-            Start Sandbox Payment
-          </button>
-        </form>
-      <% } %>
+            <button type="submit" class="btn btn-brand w-100">
+              <%= paymentMode === "sandbox"
+                ? "Start Sandbox Payment"
+                : "Pay with PayFast" %>
+            </button>
+          </form>
+        <% } %>
 
       <a
         href="/orders/<%= order.id %>/payment"

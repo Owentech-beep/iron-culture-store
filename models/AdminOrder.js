@@ -1,5 +1,8 @@
 import { pool } from "../config/database.js";
 import { queueOrderEmail } from "../services/orderEmailService.js";
+import {
+  assertNoOpenPaymentReconciliation,
+} from "./PaymentReconciliation.js";
 
 export async function listAdminOrders() {
   const { rows } = await pool.query(
@@ -76,6 +79,8 @@ export async function saveDeliveryQuote({
       await client.query("ROLLBACK");
       return null;
     }
+
+    await assertNoOpenPaymentReconciliation(client, orderId);
 
     // Run after acquiring the lock so committed payment changes are visible.
     const { rows: blockers } = await client.query(
@@ -200,6 +205,8 @@ export async function changeAdminOrderStatus({
     if (!order) {
       throw reject("Order not found.");
     }
+
+     await assertNoOpenPaymentReconciliation(client, orderId);
 
     if (order.status !== expectedStatus) {
       throw reject(

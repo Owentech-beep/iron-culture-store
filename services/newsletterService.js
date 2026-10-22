@@ -12,20 +12,19 @@ export async function sendNewsletterConfirmation(rawEmail) {
   const email = normalizeNewsletterEmail(rawEmail);
 
   if (!config.enabled) {
-    throw new Error("Newsletter test sending is disabled.");
+    throw new Error("Newsletter sending is disabled.");
   }
 
   // Never redirect another person's confirmation to the test inbox.
-  if (
-    !email ||
-    email !== config.testRecipient.trim().toLowerCase()
-  ) {
+  if (!email) return;
+
+  // Test mode accepts only the configured test address.
+  // Confirmation links always go to the requested subscriber.
+  if (config.mode === "test" && email !== config.testRecipient.toLowerCase()) {
     return;
   }
 
-  const baseUrl = new URL(
-    process.env.NEWSLETTER_PUBLIC_BASE_URL?.trim() || "",
-  );
+  const baseUrl = new URL(process.env.NEWSLETTER_PUBLIC_BASE_URL?.trim() || "");
 
   if (
     baseUrl.protocol !== "https:" ||
@@ -42,16 +41,10 @@ export async function sendNewsletterConfirmation(rawEmail) {
 
   if (!request) return;
 
-  const confirmationUrl = new URL(
-    "/newsletter/confirm",
-    baseUrl.origin,
-  );
+  const confirmationUrl = new URL("/newsletter/confirm", baseUrl.origin);
   confirmationUrl.searchParams.set("token", request.token);
 
-  const unsubscribeUrl = new URL(
-    "/newsletter/unsubscribe",
-    baseUrl.origin,
-  );
+  const unsubscribeUrl = new URL("/newsletter/unsubscribe", baseUrl.origin);
   unsubscribeUrl.searchParams.set("token", request.unsubscribeToken);
 
   const emailJob = {
@@ -60,9 +53,11 @@ export async function sendNewsletterConfirmation(rawEmail) {
     delivery_payload: {
       from: config.from,
       to: [request.email],
-      subject: "[SANDBOX TEST] Confirm your Iron Culture subscription",
+      subject:
+        `${config.mode === "test" ? "[SANDBOX TEST] " : ""}` +
+        "Confirm your Iron Culture subscription",
       text: [
-        "LOCAL NEWSLETTER TEST",
+        ...(config.mode === "test" ? ["LOCAL NEWSLETTER TEST", ""] : []),
         "",
         "You requested Iron Culture product news and offers.",
         "Confirm your subscription using the link below:",
@@ -82,7 +77,7 @@ export async function sendNewsletterConfirmation(rawEmail) {
 
   const result = await deliverQueuedEmail(emailJob, config);
 
-    if (result.status !== "sent") {
+  if (result.status !== "sent") {
     console.error("Newsletter delivery result:", {
       status: result.status,
       message: result.message,

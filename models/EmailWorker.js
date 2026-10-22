@@ -2,7 +2,14 @@ import { randomUUID } from "node:crypto";
 import { pool } from "../config/database.js";
 
 export async function claimEmail(config, db = pool) {
-    const client = await db.connect();
+  if (!["test", "live"].includes(config.mode)) {
+    throw new Error("Unsupported email mode.");
+  }
+
+  if (config.enabled !== true) return null;
+
+  const isDemo = config.mode === "test";
+  const client = await db.connect();
 
   try {
     await client.query("BEGIN");
@@ -14,9 +21,10 @@ export async function claimEmail(config, db = pool) {
            claim_token = NULL,
            claimed_at = NULL,
            last_error = 'Sending worker interrupted; inspect Resend before retrying.'
-       WHERE is_demo
+       WHERE is_demo = $1
          AND status = 'sending'
          AND claimed_at < NOW() - INTERVAL '5 minutes'`,
+      [isDemo],
     );
 
     // Leave a safety margin before the provider's 24-hour window.
@@ -24,23 +32,25 @@ export async function claimEmail(config, db = pool) {
       `UPDATE email_outbox
        SET status = 'review_required',
            last_error = 'Automatic retry window or attempt limit reached.'
-       WHERE is_demo
+       WHERE is_demo = $1
          AND status = 'pending'
          AND (
            first_attempt_at <= NOW() - INTERVAL '23 hours'
            OR attempt_count >= 5
          )`,
+      [isDemo],
     );
 
     const { rows } = await client.query(
       `SELECT *
        FROM email_outbox
        WHERE status = 'pending'
-         AND is_demo
+         AND is_demo = $1
          AND available_at <= NOW()
        ORDER BY id
        LIMIT 1
        FOR UPDATE SKIP LOCKED`,
+      [isDemo],
     );
 
     const email = rows[0];
@@ -50,33 +60,72 @@ export async function claimEmail(config, db = pool) {
       return null;
     }
 
-    const deliveryKey = email.delivery_key ?? randomUUID();
+    if (email.is_demo !== isDemo) {
+      throw new Error("Email record does not match the sending mode.");
+    }
 
-    const payload = email.delivery_payload ?? {
+    const recipient = isDemo ? config.testRecipient : email.recipient;
+
+    if (
+      typeof recipient !== "string" ||
+      recipient.length > 254 ||
+      !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(recipient)
+    ) {
+      throw new Error("Email recipient is invalid. Review the queued record.");
+    }
+
+    if (
+      typeof email.subject !== "string" ||
+      !email.subject.trim() ||
+      /[\r\n]/.test(email.subject) ||
+      typeof email.text_body !== "string" ||
+      !email.text_body.trim()
+    ) {
+      throw new Error("Queued email content is invalid.");
+    }
+
+    const subject =
+      isDemo && !email.subject.startsWith("[SANDBOX TEST]")
+        ? `[SANDBOX TEST] ${email.subject}`
+        : email.subject;
+
+    const expectedPayload = {
       from: config.from,
-      to: [config.testRecipient],
-      subject: email.subject.startsWith("[SANDBOX TEST]")
-        ? email.subject
-        : `[SANDBOX TEST] ${email.subject}`,
+      to: [recipient],
+      subject,
       text: email.text_body,
     };
 
-    // Do not silently redirect an already-prepared request.
+    // A saved delivery snapshot and its key must remain paired.
+    const hasSavedPayload = email.delivery_payload != null;
+    const hasSavedKey = email.delivery_key != null;
+
+    if (hasSavedPayload !== hasSavedKey) {
+      throw new Error(
+        "Incomplete email delivery snapshot. Review before sending.",
+      );
+    }
+
+    const deliveryKey = email.delivery_key ?? randomUUID();
+    const payload = email.delivery_payload ?? expectedPayload;
     const allowedFields = ["from", "to", "subject", "text"];
 
+    // Preserve retries exactly: never silently change the recipient,
+    // sender, subject or body of an already-prepared request.
     if (
+      !payload ||
+      typeof payload !== "object" ||
+      Array.isArray(payload) ||
       Object.keys(payload).some((key) => !allowedFields.includes(key)) ||
-      payload.from !== config.from ||
+      payload.from !== expectedPayload.from ||
       !Array.isArray(payload.to) ||
       payload.to.length !== 1 ||
-      payload.to[0] !== config.testRecipient ||
-      typeof payload.subject !== "string" ||
-      !payload.subject.startsWith("[SANDBOX TEST]") ||
-      typeof payload.text !== "string" ||
-      !payload.text.trim()
+      payload.to[0] !== recipient ||
+      payload.subject !== subject ||
+      payload.text !== expectedPayload.text
     ) {
       throw new Error(
-        "Saved email payload does not match test configuration. Review it before sending.",
+        "Saved email payload does not match its record or configuration. Review before sending.",
       );
     }
 
@@ -116,7 +165,7 @@ export async function recordResult(
 ) {
   const retryDelay = Math.min(3600, 60 * 2 ** (email.attempt_count - 1));
 
-    const result = await db.query(
+  const result = await db.query(
     `UPDATE email_outbox
      SET status = $3::VARCHAR,
          provider_email_id = $4,
@@ -151,5 +200,3 @@ export async function recordResult(
     ...(status === "pending" ? { retryAfterSeconds: retryDelay } : {}),
   });
 }
-
-

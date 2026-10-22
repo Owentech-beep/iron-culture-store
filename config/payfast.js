@@ -3,9 +3,8 @@ import "dotenv/config";
 export function getPayfastConfig() {
   const mode = process.env.PAYFAST_MODE?.trim();
 
-  // Live payments stay disabled until the integration is tested.
-  if (mode !== "sandbox") {
-    throw new Error("Only PayFast sandbox is enabled at this stage.");
+  if (!["sandbox", "live"].includes(mode)) {
+    throw new Error("PAYFAST_MODE must be sandbox or live.");
   }
 
   const merchantId = process.env.PAYFAST_MERCHANT_ID?.trim();
@@ -18,14 +17,18 @@ export function getPayfastConfig() {
     !merchantKey ||
     !passphrase ||
     [merchantId, merchantKey, passphrase].some(
-      (value) => value.startsWith("replace_with_")
+      (value) => value.startsWith("replace_with_"),
     )
   ) {
-    throw new Error("Set the PayFast sandbox credentials.");
+    throw new Error("Set the PayFast credentials for the selected mode.");
+  }
+
+  if (!/^\d+$/.test(merchantId)) {
+    throw new Error("PAYFAST_MERCHANT_ID must contain digits only.");
   }
 
   if (!rawBaseUrl) {
-    throw new Error("Set PAYFAST_PUBLIC_BASE_URL before testing checkout.");
+    throw new Error("Set PAYFAST_PUBLIC_BASE_URL.");
   }
 
   let url;
@@ -45,17 +48,26 @@ export function getPayfastConfig() {
     url.pathname !== "/"
   ) {
     throw new Error(
-      "Use an HTTPS origin without credentials, paths, queries or fragments."
+      "Use an HTTPS origin without credentials, paths, queries or fragments.",
     );
   }
 
+  const checkoutEnabled =
+    process.env.PAYFAST_CHECKOUT_ENABLED?.trim() === "true";
+
+  const providerOrigin = mode === "live"
+    ? "https://www.payfast.co.za"
+    : "https://sandbox.payfast.co.za";
+
   return Object.freeze({
     mode,
+    provider: mode === "live" ? "payfast_live" : "payfast_sandbox",
+    checkoutEnabled,
     merchantId,
     merchantKey,
     passphrase,
     baseUrl: url.origin,
-    processUrl: "https://sandbox.payfast.co.za/eng/process",
-    validationUrl: "https://sandbox.payfast.co.za/eng/query/validate",
+    processUrl: `${providerOrigin}/eng/process`,
+    validationUrl: `${providerOrigin}/eng/query/validate`,
   });
 }

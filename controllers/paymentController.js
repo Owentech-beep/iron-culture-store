@@ -1,29 +1,37 @@
 import {
   getPaymentPageData,
+  startPayment,
   startSandboxPayment,
 } from "../services/payments/paymentService.js";
 
+function readOrderId(value) {
+  if (!/^[1-9]\d*$/.test(value)) return null;
+
+  const id = Number(value);
+
+  return Number.isSafeInteger(id) && id <= 2147483647
+    ? id
+    : null;
+}
+
+function orderNotFound(res) {
+  return res.status(404).render("error", {
+    pageTitle: "Order Not Found | Iron Culture",
+    metaDescription: "This order could not be found.",
+    activePage: "account",
+    statusCode: 404,
+    message: "This order could not be found.",
+  });
+}
+
 export async function showPayment(req, res) {
-  const orderId = Number(req.params.id);
+  const orderId = readOrderId(req.params.id);
 
-  const validId =
-    /^[1-9]\d*$/.test(req.params.id) &&
-    Number.isSafeInteger(orderId) &&
-    orderId <= 2147483647;
-
-  const data = validId
+  const data = orderId
     ? await getPaymentPageData(orderId, req.user.id)
     : null;
 
-  if (!data) {
-    return res.status(404).render("error", {
-      pageTitle: "Order Not Found | Iron Culture",
-      metaDescription: "This order could not be found.",
-      activePage: "account",
-      statusCode: 404,
-      message: "This order could not be found.",
-    });
-  }
+  if (!data) return orderNotFound(res);
 
   const formatMoney = (cents) =>
     new Intl.NumberFormat("en-ZA", {
@@ -31,7 +39,7 @@ export async function showPayment(req, res) {
       currency: "ZAR",
     }).format(Number(cents) / 100);
 
-  res.render("payment", {
+  return res.render("payment", {
     pageTitle: "Payment Status | Iron Culture",
     metaDescription: "View payment availability for your order.",
     activePage: "account",
@@ -40,30 +48,32 @@ export async function showPayment(req, res) {
   });
 }
 
-export async function submitSandboxPayment(req, res) {
-  const orderId = Number(req.params.id);
+async function renderCheckout(req, res, start) {
+  const orderId = readOrderId(req.params.id);
 
-  if (
-    !/^[1-9]\d*$/.test(req.params.id) ||
-    !Number.isSafeInteger(orderId) ||
-    orderId > 2147483647
-  ) {
-    return res.status(404).render("error", {
-      pageTitle: "Order Not Found | Iron Culture",
-      metaDescription: "This order could not be found.",
-      activePage: "account",
-      statusCode: 404,
-      message: "This order could not be found.",
-    });
-  }
+  if (!orderId) return orderNotFound(res);
 
-  const checkout = await startSandboxPayment(orderId, req.user.id);
+  const checkout = await start(orderId, req.user.id);
+  const isSandbox = checkout.mode === "sandbox";
 
-  res.render("payfast-checkout", {
-    pageTitle: "Sandbox Checkout | Iron Culture",
-    metaDescription: "Continue to PayFast sandbox.",
+  return res.render("payfast-checkout", {
+    pageTitle: isSandbox
+      ? "Sandbox Checkout | Iron Culture"
+      : "Secure Checkout | Iron Culture",
+    metaDescription: isSandbox
+      ? "Continue to PayFast sandbox."
+      : "Continue to PayFast to pay for your order.",
     activePage: "account",
     orderId,
     checkout,
+    isSandbox,
   });
+}
+
+export async function submitPayment(req, res) {
+  return renderCheckout(req, res, startPayment);
+}
+
+export async function submitSandboxPayment(req, res) {
+  return renderCheckout(req, res, startSandboxPayment);
 }

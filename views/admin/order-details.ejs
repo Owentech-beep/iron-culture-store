@@ -24,9 +24,15 @@
 
     <% reconciliationAlerts.forEach((alert) => { %>
       <div class="notice-panel mb-3">
-        <p class="text-break">
-          Merchant reference:
-          <strong><%= alert.payment_reference %></strong>
+        <p>
+          Payment environment:
+          <strong>
+            <%= alert.payment_provider === "payfast_live"
+              ? "Live"
+              : alert.payment_provider === "payfast_sandbox"
+                ? "Sandbox"
+                : "Unknown" %>
+          </strong>
         </p>
 
         <p>
@@ -45,11 +51,14 @@
         </p>
 
         <p class="mb-0"><%= alert.reason %></p>
-        <% if (
-          alert.provider_status === "COMPLETE" &&
-          order.payment_status === "paid" &&
-          order.is_demo
-        ) { %>
+         <% if (
+              alert.provider_status === "COMPLETE" &&
+              order.payment_status === "paid" &&
+              (
+                (alert.payment_provider === "payfast_live" && !order.is_demo) ||
+                (alert.payment_provider === "payfast_sandbox" && order.is_demo)
+              )
+            ) { %>
           <form
             action="/admin/orders/<%= order.id %>/reconciliation/<%= alert.id %>/resolve"
             method="POST"
@@ -78,8 +87,9 @@
             ></textarea>
 
             <p class="text-muted-custom">
-              Resolution requires a matching successful payment and consumed
-              stock reservations. This action does not issue a refund or change stock.
+              This closes the review alert only after the stored successful
+              payment, order amount and consumed stock reservations match.
+              It does not collect payment, issue a refund or change stock.
             </p>
 
             <button type="submit" class="btn btn-outline-brand">
@@ -261,6 +271,7 @@
       </dl>
 
       <% if (
+            reconciliationAlerts.length === 0 &&
             order.status === "pending" &&
             order.payment_status === "unpaid" &&
             ["quote_required", "quoted"].includes(order.shipping_rate_status)
@@ -360,6 +371,7 @@
           <% } else if (order.shipping_rate_status === "free") { %>
 
             <div class="notice-panel">
+
               This order qualifies for free delivery.
               No customer delivery charge is needed.
             </div>

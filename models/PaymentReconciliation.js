@@ -1,11 +1,17 @@
 import { pool } from "../config/database.js";
+import { getPayfastConfig } from "../config/payfast.js";
 
-export async function recordSandboxReconciliation({
+export async function recordPaymentReconciliation({
   paymentReference,
   providerPaymentId,
   amountCents,
   paymentStatus = "COMPLETE",
+  provider,
 }) {
+  if (!["payfast_sandbox", "payfast_live"].includes(provider)) {
+    throw new Error("Unexpected payment provider.");
+  }
+
   if (
     typeof paymentStatus !== "string" ||
     !/^[A-Z_]{1,30}$/.test(paymentStatus)
@@ -13,10 +19,13 @@ export async function recordSandboxReconciliation({
     throw new Error("Unexpected provider payment status.");
   }
 
+  const providerLabel =
+    provider === "payfast_live" ? "PayFast" : "PayFast sandbox";
+
   const reason =
     paymentStatus === "COMPLETE"
-      ? "Verified PayFast sandbox COMPLETE notification could not be applied safely. Check payment, order and stock records."
-      : `Verified PayFast sandbox ${paymentStatus} notification requires review. Stock has not been released automatically.`;
+      ? `Verified ${providerLabel} COMPLETE notification could not be applied safely. Check payment, order and stock records.`
+      : `Verified ${providerLabel} ${paymentStatus} notification requires review. Stock has not been released automatically.`;
 
   const client = await pool.connect();
 
@@ -27,8 +36,8 @@ export async function recordSandboxReconciliation({
       `SELECT id, order_id
        FROM payments
        WHERE idempotency_key = $1
-         AND provider = 'payfast_sandbox'`,
-      [paymentReference],
+       AND provider = $2`,
+      [paymentReference, provider],
     );
 
     const payment = payments[0];
@@ -39,9 +48,13 @@ export async function recordSandboxReconciliation({
       );
     }
 
-    await client.query(`SELECT id FROM orders WHERE id = $1 FOR UPDATE`, [
-      payment.order_id,
-    ]);
+    await client.query(
+      `SELECT id
+       FROM orders
+       WHERE id = $1
+       FOR UPDATE`,
+      [payment.order_id],
+    );
 
     await client.query(
       `INSERT INTO payment_reconciliation_alerts (
@@ -101,6 +114,7 @@ export async function listPaymentReconciliationAlerts(orderId) {
   const { rows } = await pool.query(
     `SELECT
        a.*,
+       p.provider AS payment_provider,
        p.idempotency_key AS payment_reference
      FROM payment_reconciliation_alerts a
      JOIN payments p ON p.id = a.payment_id
@@ -112,7 +126,7 @@ export async function listPaymentReconciliationAlerts(orderId) {
   return rows;
 }
 
-export async function resolveSuccessfulSandboxAlert({
+export async function resolveSuccessfulPaymentAlert({
   orderId,
   alertId,
   adminId,
@@ -124,13 +138,6 @@ export async function resolveSuccessfulSandboxAlert({
     error.status = 409;
     error.publicMessage = message;
     return error;
-  }
-
-  if (
-    process.env.NODE_ENV !== "development" ||
-    process.env.PAYFAST_MODE?.trim() !== "sandbox"
-  ) {
-    throw reject("This resolution action is available only in local sandbox.");
   }
 
   if (
@@ -153,13 +160,13 @@ export async function resolveSuccessfulSandboxAlert({
        FROM orders
        WHERE id = $1
        FOR UPDATE`,
-      [orderId]
+      [orderId],
     );
 
     const order = orders[0];
 
-    if (!order || !order.is_demo) {
-      throw reject("A demo order is required.");
+    if (!order) {
+      throw reject("Order not found.");
     }
 
     const { rows: payments } = await client.query(
@@ -168,13 +175,20 @@ export async function resolveSuccessfulSandboxAlert({
        JOIN payment_reconciliation_alerts a ON a.payment_id = p.id
        WHERE a.id = $1 AND p.order_id = $2
        FOR UPDATE OF p`,
-      [alertId, orderId]
+      [alertId, orderId],
     );
 
     const payment = payments[0];
 
-    if (!payment || payment.provider !== "payfast_sandbox") {
-      throw reject("Sandbox payment alert not found.");
+    if (
+      !payment ||
+      !["payfast_sandbox", "payfast_live"].includes(payment.provider)
+    ) {
+      throw reject("Supported payment alert not found.");
+    }
+
+    if (order.is_demo !== (payment.provider === "payfast_sandbox")) {
+      throw reject("The payment environment does not match this order.");
     }
 
     const { rows: alerts } = await client.query(
@@ -182,14 +196,18 @@ export async function resolveSuccessfulSandboxAlert({
        FROM payment_reconciliation_alerts
        WHERE id = $1
        FOR UPDATE`,
-      [alertId]
+      [alertId],
     );
 
     const alert = alerts[0];
 
+    if (!alert || alert.payment_id !== payment.id) {
+      throw reject("Payment alert not found. Refresh the order page.");
+    }
+
     if (alert.occurrence_count !== expectedOccurrenceCount) {
       throw reject(
-        "Another notification arrived after this page loaded. Refresh and review it."
+        "Another notification arrived after this page loaded. Refresh and review it.",
       );
     }
 
@@ -210,7 +228,7 @@ export async function resolveSuccessfulSandboxAlert({
       !order.stock_deducted_at
     ) {
       throw reject(
-        "The alert does not match a successfully paid order. Separate reconciliation is required."
+        "The alert does not match a successfully paid order. Separate reconciliation is required.",
       );
     }
 
@@ -220,7 +238,7 @@ export async function resolveSuccessfulSandboxAlert({
        WHERE payment_id = $1
        ORDER BY variant_id
        FOR UPDATE`,
-      [payment.id]
+      [payment.id],
     );
 
     const { rows: items } = await client.query(
@@ -229,7 +247,7 @@ export async function resolveSuccessfulSandboxAlert({
        WHERE order_id = $1
        GROUP BY variant_id
        ORDER BY variant_id`,
-      [orderId]
+      [orderId],
     );
 
     if (
@@ -240,11 +258,11 @@ export async function resolveSuccessfulSandboxAlert({
           reservation.variant_id !== items[index].variant_id ||
           reservation.quantity !== items[index].quantity ||
           reservation.status !== "consumed" ||
-          !reservation.resolved_at
+          !reservation.resolved_at,
       )
     ) {
       throw reject(
-        "Consumed reservations do not match the order. Review stock records."
+        "Consumed reservations do not match the order. Review stock records.",
       );
     }
 
@@ -256,7 +274,7 @@ export async function resolveSuccessfulSandboxAlert({
          resolved_by = $1,
          resolution_note = $2
        WHERE id = $3`,
-      [adminId, note.trim(), alertId]
+      [adminId, note.trim(), alertId],
     );
 
     await client.query(
@@ -272,9 +290,9 @@ export async function resolveSuccessfulSandboxAlert({
         orderId,
         order.status,
         adminId,
-        `Resolved sandbox alert ${alertId} for payment ${payment.id} ` +
+        `Resolved ${payment.provider} alert ${alertId} for payment ${payment.id} ` +
           `(notification count ${alert.occurrence_count}). ${note.trim()}`,
-      ]
+      ],
     );
 
     await client.query("COMMIT");
@@ -284,4 +302,15 @@ export async function resolveSuccessfulSandboxAlert({
   } finally {
     client.release();
   }
+}
+
+export async function recordSandboxReconciliation(notification) {
+  if (getPayfastConfig().mode !== "sandbox") {
+    throw new Error("Sandbox reconciliation is unavailable.");
+  }
+
+  return recordPaymentReconciliation({
+    ...notification,
+    provider: "payfast_sandbox",
+  });
 }

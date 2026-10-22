@@ -1,7 +1,7 @@
 import express, { Router } from "express";
 
 import {
-  requireLocalSandboxPayfastSource,
+ requirePayfastSource,
 } from "../middleware/payfastSourceMiddleware.js";
 
 import {
@@ -12,7 +12,7 @@ const router = Router();
 
 router.post(
   "/notify",
-  requireLocalSandboxPayfastSource,
+  requirePayfastSource,
   express.text({
     type: "application/x-www-form-urlencoded",
     limit: "20kb",

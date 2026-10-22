@@ -3,6 +3,7 @@ import { Router } from "express";
 import { requireAuth } from "../middleware/authMiddleware.js";
 import {
   showPayment,
+  submitPayment,
   submitSandboxPayment,
 } from "../controllers/paymentController.js";
 
@@ -16,6 +17,9 @@ router.use((req, res, next) => {
 });
 
 router.get("/:id/payment", showPayment);
+router.post("/:id/payment/payfast", submitPayment);
+
+// Existing sandbox forms remain restricted to sandbox mode.
 router.post("/:id/payment/sandbox", submitSandboxPayment);
 
 export default router;

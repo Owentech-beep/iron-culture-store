@@ -66,19 +66,29 @@ function runWorker() {
 try {
   const config = getEmailConfig();
 
-  if (!config.enabled) {
-    throw new Error("Set EMAIL_SENDING_ENABLED=true before starting.");
+  if (config.mode === "test" && process.env.DATABASE_URL) {
+    throw new Error("Test email sending requires local PostgreSQL.");
   }
 
-  if (process.env.DATABASE_URL) {
-    throw new Error("This watcher is for local PostgreSQL testing only.");
+  if (
+    config.mode === "live" &&
+    !process.env.DATABASE_URL?.trim()
+  ) {
+    throw new Error("Live email sending requires DATABASE_URL.");
   }
 
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
 
-  console.log("Local demo email watcher started.");
-  console.log("Checking the queue every 15 seconds. Press Ctrl+C to stop.");
+  console.log(`Email watcher started in ${config.mode} mode.`);
+
+  if (!config.enabled) {
+    console.log(
+      "Sending is disabled. Worker checks will not send emails or access the database.",
+    );
+  }
+
+  console.log("Checking the queue every 15 seconds.");
 
   runWorker();
 } catch (error) {

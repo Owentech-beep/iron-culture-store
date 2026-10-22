@@ -38,14 +38,20 @@ export function getPasswordResetConfig() {
 export async function requestPasswordReset(emailAddress) {
   const config = getPasswordResetConfig();
 
-  // Local test restriction: never redirect another user's reset link.
+  if (typeof emailAddress !== "string") return;
+
+  const normalizedEmail = emailAddress.trim().toLowerCase();
+
+  // Test mode accepts only the configured test account.
+  // Neither mode redirects a reset link to another recipient.
   if (
-    emailAddress !== config.testRecipient.toLowerCase()
+    config.mode === "test" &&
+    normalizedEmail !== config.testRecipient.toLowerCase()
   ) {
     return;
   }
 
-  const reset = await createPasswordResetToken(emailAddress);
+  const reset = await createPasswordResetToken(normalizedEmail);
 
   if (!reset) return;
 
@@ -58,12 +64,19 @@ export async function requestPasswordReset(emailAddress) {
     {
       from: config.from,
       to: [reset.recipient],
-      subject: "[LOCAL TEST] Reset your Iron Culture password",
+      subject:
+        `${config.mode === "test" ? "[LOCAL TEST] " : ""}` +
+        "Reset your Iron Culture password",
       text: [
         "A password reset was requested for your Iron Culture account.",
         "",
-        "This is a local development test, but using this link WILL",
-        "change your local account password.",
+        ...(config.mode === "test"
+          ? [
+              "This is a local development test.",
+              "Using this link changes your local account password.",
+              "",
+            ]
+          : []),
         "",
         "Open this link to choose a new password:",
         link.href,

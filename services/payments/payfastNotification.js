@@ -10,8 +10,9 @@ function notificationError(message, status = 400) {
 // Notification values must retain their original whitespace.
 function encodeNotificationValue(value) {
   return encodeURIComponent(value)
-    .replace(/[!'()*~]/g, (character) =>
-      `%${character.charCodeAt(0).toString(16).toUpperCase()}`
+    .replace(
+      /[!'()*~]/g,
+      (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
     )
     .replace(/%20/g, "+");
 }
@@ -46,23 +47,20 @@ export function parseSignedNotification(rawBody, passphrase) {
   // Preserve incoming field order and include empty values.
   const parameterString = entries
     .filter(([name]) => name !== "signature")
-    .map(
-      ([name, value]) =>
-        `${name}=${encodeNotificationValue(value)}`
-    )
+    .map(([name, value]) => `${name}=${encodeNotificationValue(value)}`)
     .join("&");
 
   const expectedSignature = createHash("md5")
     .update(
       `${parameterString}&passphrase=${encodeNotificationValue(passphrase)}`,
-      "utf8"
+      "utf8",
     )
     .digest("hex");
 
   if (
     !timingSafeEqual(
       Buffer.from(suppliedSignature, "hex"),
-      Buffer.from(expectedSignature, "hex")
+      Buffer.from(expectedSignature, "hex"),
     )
   ) {
     throw notificationError("Invalid notification signature.", 403);
@@ -86,12 +84,12 @@ export function notificationAmountCents(value) {
   return Number(cents);
 }
 
-export async function verifySandboxNotification(rawBody) {
+export async function verifyPayfastNotification(rawBody) {
   const config = getPayfastConfig();
 
   const { data, parameterString } = parseSignedNotification(
     rawBody,
-    config.passphrase
+    config.passphrase,
   );
 
   if (data.merchant_id !== config.merchantId) {
@@ -100,11 +98,18 @@ export async function verifySandboxNotification(rawBody) {
 
   if (
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      data.m_payment_id ?? ""
+      data.m_payment_id ?? "",
     ) ||
     !/^\d{1,255}$/.test(data.pf_payment_id ?? "")
   ) {
     throw notificationError("Invalid payment reference.");
+  }
+
+  if (
+    typeof data.payment_status !== "string" ||
+    !/^[A-Z_]{1,30}$/.test(data.payment_status)
+  ) {
+    throw notificationError("Invalid payment status.");
   }
 
   const amountCents = notificationAmountCents(data.amount_gross);
@@ -130,7 +135,7 @@ export async function verifySandboxNotification(rawBody) {
   } catch {
     throw notificationError(
       "PayFast confirmation is temporarily unavailable.",
-      503
+      503,
     );
   }
 
@@ -143,5 +148,14 @@ export async function verifySandboxNotification(rawBody) {
     providerPaymentId: data.pf_payment_id,
     paymentStatus: data.payment_status,
     amountCents,
+    provider: config.provider,
   };
+}
+
+export async function verifySandboxNotification(rawBody) {
+  if (getPayfastConfig().mode !== "sandbox") {
+    throw notificationError("Sandbox verification is unavailable.", 503);
+  }
+
+  return verifyPayfastNotification(rawBody);
 }

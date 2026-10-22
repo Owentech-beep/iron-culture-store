@@ -4,8 +4,9 @@ import { getPayfastConfig } from "../../config/payfast.js";
 // Match PHP urlencode(), which PayFast uses for signatures.
 export function payfastEncode(value) {
   return encodeURIComponent(String(value).trim())
-    .replace(/[!'()*~]/g, (character) =>
-      `%${character.charCodeAt(0).toString(16).toUpperCase()}`
+    .replace(
+      /[!'()*~]/g,
+      (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
     )
     .replace(/%20/g, "+");
 }
@@ -18,27 +19,29 @@ export function signCheckoutEntries(entries, passphrase) {
 
   parameters.push(`passphrase=${payfastEncode(passphrase)}`);
 
-  return createHash("md5")
-    .update(parameters.join("&"), "utf8")
-    .digest("hex");
+  return createHash("md5").update(parameters.join("&"), "utf8").digest("hex");
 }
 
-export function buildSandboxCheckout({
+export function buildPayfastCheckout({
   orderId,
   paymentReference,
   amountCents,
+  provider,
+  mode,
 }) {
   const config = getPayfastConfig();
 
-  if (config.mode !== "sandbox") {
-    throw new Error("Only sandbox checkout is supported.");
+  if (!config.checkoutEnabled) {
+    throw new Error("Online payments are disabled.");
   }
 
-  if (
-    !Number.isSafeInteger(orderId) ||
-    orderId < 1 ||
-    orderId > 2147483647
-  ) {
+  if (provider !== config.provider || mode !== config.mode) {
+    throw new Error(
+      "The payment attempt does not match the configured payment environment.",
+    );
+  }
+
+  if (!Number.isSafeInteger(orderId) || orderId < 1 || orderId > 2147483647) {
     throw new Error("Invalid checkout order ID.");
   }
 
@@ -46,7 +49,7 @@ export function buildSandboxCheckout({
   if (
     typeof paymentReference !== "string" ||
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      paymentReference
+      paymentReference,
     )
   ) {
     throw new Error("Invalid payment reference.");
@@ -61,8 +64,7 @@ export function buildSandboxCheckout({
     `${Math.floor(amountCents / 100)}.` +
     String(amountCents % 100).padStart(2, "0");
 
-  const orderPaymentUrl =
-    `${config.baseUrl}/orders/${orderId}/payment`;
+  const orderPaymentUrl = `${config.baseUrl}/orders/${orderId}/payment`;
 
   // Preserve this order. Do not alphabetically sort these fields.
   const entries = [
@@ -73,16 +75,19 @@ export function buildSandboxCheckout({
     ["notify_url", `${config.baseUrl}/payments/payfast/notify`],
     ["m_payment_id", paymentReference],
     ["amount", amount],
-    ["item_name", `Iron Culture sandbox order ${orderId}`],
+    [
+      "item_name",
+      config.mode === "sandbox"
+        ? `Iron Culture sandbox order ${orderId}`
+        : `Iron Culture order ${orderId}`,
+    ],
   ];
 
   const signature = signCheckoutEntries(entries, config.passphrase);
 
   return {
+    mode: config.mode,
     action: config.processUrl,
-    fields: Object.fromEntries([
-      ...entries,
-      ["signature", signature],
-    ]),
+    fields: Object.fromEntries([...entries, ["signature", signature]]),
   };
 }

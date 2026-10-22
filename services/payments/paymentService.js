@@ -1,8 +1,8 @@
 import { pool } from "../../config/database.js";
 import { getPayfastConfig } from "../../config/payfast.js";
 import { findOrderForUser } from "../../models/Order.js";
-import { createSandboxPaymentAttempt } from "../../models/Payment.js";
-import { buildSandboxCheckout } from "./payfast.js";
+import { createPaymentAttempt } from "../../models/Payment.js";
+import { buildPayfastCheckout } from "./payfast.js";
 import { listPaymentReconciliationAlerts } from "../../models/PaymentReconciliation.js";
 
 export async function getPaymentPageData(orderId, userId) {
@@ -18,18 +18,26 @@ export async function getPaymentPageData(orderId, userId) {
     );
   }
 
-  if (process.env.NODE_ENV !== "development") {
-    reasons.push("Sandbox checkout is enabled only in local development.");
-  }
+  let config = null;
 
   try {
-    getPayfastConfig();
+    config = getPayfastConfig();
   } catch {
-    reasons.push("PayFast sandbox configuration is incomplete.");
+    reasons.push("Payment configuration is incomplete.");
   }
 
-  if (!order.is_demo) {
-    reasons.push("Only demo orders can use sandbox checkout.");
+  if (config) {
+    if (!config.checkoutEnabled) {
+      reasons.push("Online payments are temporarily unavailable.");
+    }
+
+    if (config.mode === "sandbox" && !order.is_demo) {
+      reasons.push("Sandbox checkout is restricted to demo orders.");
+    }
+
+    if (config.mode === "live" && order.is_demo) {
+      reasons.push("Demo orders cannot use live payments.");
+    }
   }
 
   if (order.status !== "pending" || order.payment_status !== "unpaid") {
@@ -85,13 +93,18 @@ export async function getPaymentPageData(orderId, userId) {
   return {
     order,
     reasons,
-    providerName: "PayFast sandbox",
-    canStartSandbox: reasons.length === 0,
+    paymentMode: config?.mode ?? null,
+    providerName: config?.mode === "sandbox" ? "PayFast sandbox" : "PayFast",
+    canStartPayment: reasons.length === 0,
+
+    // Temporary compatibility with the existing payment template.
+    canStartSandbox: config?.mode === "sandbox" && reasons.length === 0,
+
     paymentAttempt: rows[0] ?? null,
   };
 }
 
-export async function startSandboxPayment(orderId, userId) {
+export async function startPayment(orderId, userId) {
   const data = await getPaymentPageData(orderId, userId);
 
   if (!data) {
@@ -100,15 +113,27 @@ export async function startSandboxPayment(orderId, userId) {
     throw error;
   }
 
-  if (!data.canStartSandbox) {
+  if (!data.canStartPayment) {
     const error = new Error(data.reasons.join(" "));
     error.status = 409;
     error.publicMessage = error.message;
     throw error;
   }
 
-  // The model rechecks eligibility and stock under database locks.
-  const attempt = await createSandboxPaymentAttempt(orderId, userId);
+  // Rechecks eligibility and stock under database locks.
+  const attempt = await createPaymentAttempt(orderId, userId);
 
-  return buildSandboxCheckout(attempt);
+  return buildPayfastCheckout(attempt);
+}
+
+// Preserve the old endpoint without allowing it to start live payments.
+export async function startSandboxPayment(orderId, userId) {
+  if (getPayfastConfig().mode !== "sandbox") {
+    const error = new Error("Sandbox checkout is unavailable.");
+    error.status = 409;
+    error.publicMessage = error.message;
+    throw error;
+  }
+
+  return startPayment(orderId, userId);
 }

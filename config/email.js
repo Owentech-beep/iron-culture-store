@@ -7,8 +7,17 @@ export function getEmailConfig() {
   const testRecipient = process.env.EMAIL_TEST_RECIPIENT?.trim();
   const enabled = process.env.EMAIL_SENDING_ENABLED?.trim();
 
-  if (process.env.NODE_ENV !== "development" || mode !== "test") {
-    throw new Error("Only local development email testing is enabled.");
+  if (!["test", "live"].includes(mode)) {
+    throw new Error("Set EMAIL_MODE to test or live.");
+  }
+
+  if (
+    (mode === "test" && process.env.NODE_ENV !== "development") ||
+    (mode === "live" && process.env.NODE_ENV !== "production")
+  ) {
+    throw new Error(
+      "Test email requires development; live email requires production.",
+    );
   }
 
   if (!["true", "false"].includes(enabled)) {
@@ -20,19 +29,44 @@ export function getEmailConfig() {
     apiKey.startsWith("replace_with_") ||
     !apiKey.startsWith("re_")
   ) {
-    throw new Error("Set a Resend API key in your local .env.");
+    throw new Error("Set a valid Resend API key.");
   }
 
-  if (!from || /[\r\n]/.test(from)) {
+  if (!from || from.length > 320 || /[\r\n]/.test(from)) {
     throw new Error("Set a valid EMAIL_FROM value.");
   }
 
+  // Accept a plain address or a display name followed by <address>.
+  const senderAddress = from.includes("<")
+    ? from.match(/^[^<>]+<([^<>]+)>$/)?.[1]
+    : from;
+
+  const validAddress = (value) =>
+    typeof value === "string" &&
+    value.length <= 254 &&
+    /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(value);
+
+  if (!validAddress(senderAddress)) {
+    throw new Error("EMAIL_FROM must contain a valid sender address.");
+  }
+
   if (
-    !testRecipient ||
-    testRecipient.startsWith("replace_with_") ||
-    !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(testRecipient)
+    mode === "live" &&
+    senderAddress.split("@")[1].toLowerCase() !== "ironculturesubs.co.za"
   ) {
-    throw new Error("Set EMAIL_TEST_RECIPIENT to your Resend account email.");
+    throw new Error(
+      "Live EMAIL_FROM must use the ironculturesubs.co.za domain.",
+    );
+  }
+
+  if (
+    mode === "test" &&
+    (
+      !validAddress(testRecipient) ||
+      testRecipient.startsWith("replace_with_")
+    )
+  ) {
+    throw new Error("Set a valid EMAIL_TEST_RECIPIENT.");
   }
 
   return Object.freeze({
@@ -40,6 +74,6 @@ export function getEmailConfig() {
     enabled: enabled === "true",
     apiKey,
     from,
-    testRecipient,
+    testRecipient: mode === "test" ? testRecipient : null,
   });
 }

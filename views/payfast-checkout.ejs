@@ -4,17 +4,35 @@
 <main id="main-content" class="section-space">
   <div class="container">
     <section class="auth-panel">
-      <p class="eyebrow">TEST PAYMENT</p>
-      <h1 class="section-title">PayFast Sandbox</h1>
+      <p class="eyebrow">
+        <%= isSandbox ? "TEST PAYMENT" : "ORDER PAYMENT" %>
+      </p>
 
-      <div class="demo-notice">
-        This is a sandbox transaction. No real money will be collected.
-      </div>
+      <h1 class="section-title">
+        <%= isSandbox ? "PayFast Sandbox" : "Pay with PayFast" %>
+      </h1>
+
+      <% if (isSandbox) { %>
+        <div class="demo-notice">
+          This is a sandbox transaction. No real money will be collected.
+        </div>
+      <% } %>
 
       <p class="text-muted-custom">
-        Stock has been reserved for this test order.
-        Continue to PayFast to complete the sandbox payment.
+        Stock has been reserved for this order.
+        <%= isSandbox
+          ? "Continue to PayFast to complete the sandbox payment."
+          : "Continue to PayFast to complete your payment." %>
       </p>
+
+      <dl class="cart-summary-lines">
+        <div>
+          <dt><%= isSandbox ? "Test amount" : "Amount to pay" %></dt>
+          <dd>
+            <strong>R <%= checkout.fields.amount %></strong>
+          </dd>
+        </div>
+      </dl>
 
       <form action="<%= checkout.action %>" method="POST">
         <% Object.entries(checkout.fields).forEach(([name, value]) => { %>
@@ -26,7 +44,9 @@
         <% }); %>
 
         <button type="submit" class="btn btn-brand w-100">
-          Continue to PayFast Sandbox
+          <%= isSandbox
+            ? "Continue to PayFast Sandbox"
+            : "Continue to PayFast" %>
         </button>
       </form>
 
@@ -39,6 +59,7 @@
 
       <p class="text-muted-custom mt-3 mb-0">
         Going back does not cancel the payment attempt or release stock.
+        Check the payment status before trying again.
       </p>
     </section>
   </div>

@@ -10,7 +10,7 @@ import {
 import {
   recordSandboxReconciliation,
   listPaymentReconciliationAlerts,
-  resolveSuccessfulSandboxAlert,
+  resolveSuccessfulPaymentAlert,
 } from "../models/PaymentReconciliation.js";
 
 let fixtureOrderId;
@@ -39,6 +39,29 @@ try {
       connection[0].server_address,
     ),
     "Expected a local PostgreSQL server.",
+  );
+
+  // Applies only to this test process, after verifying the local database.
+  // Does not change .env, the running app, or Render.
+  process.env.PAYFAST_CHECKOUT_ENABLED = "true";
+
+  const { rows: sources } = await pool.query(
+    `SELECT o.id
+     FROM orders o
+     WHERE o.id = 18
+       AND o.is_demo
+       AND EXISTS (
+         SELECT 1
+         FROM order_items oi
+         JOIN inventory i ON i.variant_id = oi.variant_id
+         WHERE oi.order_id = o.id
+       )`,
+  );
+
+  assert.equal(
+    sources.length,
+    1,
+    "Local demo order 18 must exist and have an item with inventory.",
   );
 
   // Copy only the order's required fields into a new disposable demo order.
@@ -192,7 +215,7 @@ try {
   };
 
   await assert.rejects(
-    () => resolveSuccessfulSandboxAlert(resolution),
+    () => resolveSuccessfulPaymentAlert(resolution),
     (error) =>
       error.status === 409 && /successfully paid order/i.test(error.message),
     "An unpaid order must not qualify for resolution.",
@@ -227,7 +250,7 @@ try {
 
   await assert.rejects(
     () =>
-      resolveSuccessfulSandboxAlert({
+      resolveSuccessfulPaymentAlert({
         ...resolution,
         expectedOccurrenceCount: currentAlert.occurrence_count,
       }),
@@ -248,7 +271,7 @@ try {
   };
 
   await assert.rejects(
-    () => resolveSuccessfulSandboxAlert(resolution),
+    () => resolveSuccessfulPaymentAlert(resolution),
     (error) =>
       error.status === 409 && /another notification/i.test(error.message),
     "A stale form must not resolve a newer alert.",
@@ -257,7 +280,7 @@ try {
   console.log("PASS: stale resolution form rejected.");
 
   await assert.rejects(
-    () => resolveSuccessfulSandboxAlert(currentResolution),
+    () => resolveSuccessfulPaymentAlert(currentResolution),
     (error) =>
       error.status === 409 && /consumed reservations/i.test(error.message),
     "Missing consumed reservations must block resolution.",
@@ -316,10 +339,10 @@ try {
     [fixturePaymentId, variantId],
   );
 
-  await resolveSuccessfulSandboxAlert(currentResolution);
+  await resolveSuccessfulPaymentAlert(currentResolution);
 
   // Repeat the same submission: no second history entry should be added.
-  await resolveSuccessfulSandboxAlert(currentResolution);
+  await resolveSuccessfulPaymentAlert(currentResolution);
 
   const { rows: resolvedAlerts } = await pool.query(
     `SELECT status, resolved_at, resolved_by, resolution_note
@@ -391,6 +414,19 @@ try {
       );
 
       await client.query("DELETE FROM payments WHERE order_id = $1", [
+        fixtureOrderId,
+      ]);
+
+      await client.query("DELETE FROM email_outbox WHERE order_id = $1", [
+        fixtureOrderId,
+      ]);
+
+      await client.query(
+        "DELETE FROM order_status_history WHERE order_id = $1",
+        [fixtureOrderId],
+      );
+
+      await client.query("DELETE FROM order_items WHERE order_id = $1", [
         fixtureOrderId,
       ]);
 

@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
 import { pool } from "../config/database.js";
-import { createSandboxPaymentAttempt } from "../models/Payment.js";
+import {
+  createSandboxPaymentAttempt,
+  completeSandboxPayment,
+  completePayment,
+} from "../models/Payment.js";
 
 const orderIds = [];
 const variantIds = [];
@@ -24,6 +28,10 @@ async function checkInventory(variantId, quantity, reserved) {
   assert.equal(rows[0].quantity, quantity);
   assert.equal(rows[0].reserved_quantity, reserved);
 }
+
+// Only this test process enables payment creation.
+// The database and sandbox checks above must pass first.
+process.env.PAYFAST_CHECKOUT_ENABLED = "true";
 
 async function checkCounts(ids, payments, reservations) {
   const { rows } = await pool.query(
@@ -126,8 +134,10 @@ try {
     // A: last unit; B: duplicate request; C/D: insufficient-stock order.
     for (const [index, quantity] of [1, 3, 2, 0].entries()) {
       const variant = await client.query(
-        `INSERT INTO product_variants (product_id, sku, flavour)
-         VALUES ($1, $2, $3)
+        `INSERT INTO product_variants (
+           product_id, sku, flavour, size, price
+         )
+         VALUES ($1, $2, $3, '1 kg', 600)
          RETURNING id`,
         [productId, `TEST-${token}-${index}`, `Test ${index}`],
       );
@@ -162,6 +172,7 @@ try {
             lastName: "Test",
             street: "Test address",
             city: "Test",
+            email: "payment-test@example.com",
           }),
           total,
         ],
@@ -247,6 +258,143 @@ try {
   }
 
   console.log("PASS: physical stock unchanged and orders remain unpaid.");
+  const successfulRequest = duplicateRequests.find(
+    (result) => result.status === "fulfilled",
+  );
+
+  assert.ok(successfulRequest);
+  const attempt = successfulRequest.value;
+
+  const notification = {
+    paymentReference: attempt.paymentReference,
+    providerPaymentId: `999${Date.now()}`,
+    amountCents: attempt.amountCents,
+  };
+
+  // A wrong amount must not consume the reservation.
+  await assert.rejects(
+    () =>
+      completeSandboxPayment({
+        ...notification,
+        amountCents: notification.amountCents + 1,
+      }),
+    (error) => error.status === 409,
+  );
+
+  // A live notification must not match a sandbox payment.
+  await assert.rejects(
+    () =>
+      completePayment({
+        ...notification,
+        provider: "payfast_live",
+      }),
+    (error) => error.status === 409,
+  );
+
+  await checkInventory(variantIds[1], 3, 1);
+
+  const { rows: beforeCompletion } = await pool.query(
+    `SELECT status, payment_status, stock_deducted_at
+     FROM orders
+     WHERE id = $1`,
+    [orderIds[2]],
+  );
+
+  assert.equal(beforeCompletion[0].status, "pending");
+  assert.equal(beforeCompletion[0].payment_status, "unpaid");
+  assert.equal(beforeCompletion[0].stock_deducted_at, null);
+
+  const { rows: beforeEmails } = await pool.query(
+    `SELECT COUNT(*)::INTEGER AS total
+     FROM email_outbox
+     WHERE order_id = $1`,
+    [orderIds[2]],
+  );
+
+  assert.equal(beforeEmails[0].total, 0);
+  console.log("PASS: wrong amount and provider leave payment state unchanged.");
+
+  // Wait for both calls before assertions or cleanup.
+  const confirmations = await Promise.allSettled([
+    completeSandboxPayment(notification),
+    completeSandboxPayment(notification),
+  ]);
+
+  for (const result of confirmations) {
+    if (result.status === "rejected") throw result.reason;
+  }
+
+  assert.deepEqual(
+    confirmations.map((result) => result.value.alreadyProcessed).sort(),
+    [false, true],
+  );
+
+  await checkInventory(variantIds[1], 2, 0);
+
+  const { rows: completedOrders } = await pool.query(
+    `SELECT status, payment_status, stock_deducted_at
+     FROM orders
+     WHERE id = $1`,
+    [orderIds[2]],
+  );
+
+  assert.equal(completedOrders[0].status, "paid");
+  assert.equal(completedOrders[0].payment_status, "paid");
+  assert.ok(completedOrders[0].stock_deducted_at);
+
+  const { rows: completedPayments } = await pool.query(
+    `SELECT status, provider, provider_payment_id
+     FROM payments
+     WHERE id = $1`,
+    [attempt.paymentId],
+  );
+
+  assert.equal(completedPayments[0].status, "succeeded");
+  assert.equal(completedPayments[0].provider, "payfast_sandbox");
+  assert.equal(
+    completedPayments[0].provider_payment_id,
+    notification.providerPaymentId,
+  );
+
+  const { rows: consumed } = await pool.query(
+    `SELECT status, quantity, resolved_at
+     FROM stock_reservations
+     WHERE payment_id = $1`,
+    [attempt.paymentId],
+  );
+
+  assert.equal(consumed.length, 1);
+  assert.equal(consumed[0].status, "consumed");
+  assert.equal(consumed[0].quantity, 1);
+  assert.ok(consumed[0].resolved_at);
+
+  const { rows: emails } = await pool.query(
+    `SELECT event_type, status, is_demo
+     FROM email_outbox
+     WHERE order_id = $1`,
+    [orderIds[2]],
+  );
+
+  assert.equal(emails.length, 1);
+  assert.equal(emails[0].event_type, "payment_confirmed");
+  assert.equal(emails[0].status, "pending");
+  assert.equal(emails[0].is_demo, true);
+
+  const { rows: history } = await pool.query(
+    `SELECT COUNT(*)::INTEGER AS total
+     FROM order_status_history
+     WHERE order_id = $1 AND new_status = 'paid'`,
+    [orderIds[2]],
+  );
+
+  assert.equal(history[0].total, 1);
+
+  console.log(
+    "PASS: successful confirmation marks the order and payment paid.",
+  );
+  console.log("PASS: duplicate confirmations deduct stock only once.");
+  console.log("PASS: reservation consumed and reserved stock released.");
+  console.log("PASS: one payment email and one paid history entry.");
 } catch (error) {
   console.error("TEST FAILED:", error.message);
   process.exitCode = 1;
@@ -260,7 +408,8 @@ try {
       await client.query(
         `DELETE FROM payment_reconciliation_alerts
          WHERE payment_id IN (
-           SELECT id FROM payments WHERE order_id = ANY($1::INTEGER[])
+           SELECT id FROM payments
+           WHERE order_id = ANY($1::INTEGER[])
          )`,
         [orderIds],
       );
@@ -268,7 +417,8 @@ try {
       await client.query(
         `DELETE FROM stock_reservations
          WHERE payment_id IN (
-           SELECT id FROM payments WHERE order_id = ANY($1::INTEGER[])
+           SELECT id FROM payments
+           WHERE order_id = ANY($1::INTEGER[])
          )`,
         [orderIds],
       );
@@ -279,13 +429,38 @@ try {
       );
 
       await client.query(
-        "DELETE FROM orders WHERE id = ANY($1::INTEGER[])",
+        "DELETE FROM email_outbox WHERE order_id = ANY($1::INTEGER[])",
         [orderIds],
       );
 
-      // Product deletion cascades to these disposable variants/inventory.
+      await client.query(
+        "DELETE FROM order_status_history WHERE order_id = ANY($1::INTEGER[])",
+        [orderIds],
+      );
+
+      await client.query(
+        "DELETE FROM order_items WHERE order_id = ANY($1::INTEGER[])",
+        [orderIds],
+      );
+
+      await client.query("DELETE FROM orders WHERE id = ANY($1::INTEGER[])", [
+        orderIds,
+      ]);
+
+      await client.query(
+        "DELETE FROM inventory WHERE variant_id = ANY($1::INTEGER[])",
+        [variantIds],
+      );
+
+      await client.query(
+        "DELETE FROM product_variants WHERE id = ANY($1::INTEGER[])",
+        [variantIds],
+      );
+
       await client.query("DELETE FROM products WHERE id = $1", [productId]);
+
       await client.query("DELETE FROM brands WHERE id = $1", [brandId]);
+
       await client.query("DELETE FROM categories WHERE id = $1", [categoryId]);
 
       await client.query("COMMIT");
@@ -293,12 +468,16 @@ try {
     } catch (error) {
       await client.query("ROLLBACK").catch(() => {});
       console.error("TEST CLEANUP FAILED:", error.message);
-      console.error("Fixture IDs:", { orderIds, productId, brandId, categoryId });
+      console.error("Fixture IDs:", {
+        orderIds,
+        productId,
+        brandId,
+        categoryId,
+      });
       process.exitCode = 1;
     } finally {
       client.release();
     }
   }
-
   await pool.end();
 }

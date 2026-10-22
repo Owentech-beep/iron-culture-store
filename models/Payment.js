@@ -3,6 +3,7 @@ import { pool } from "../config/database.js";
 import { assertNoOpenPaymentReconciliation } from "./PaymentReconciliation.js";
 import { clearPurchasedCartItems } from "./Cart.js";
 import { queueOrderEmail } from "../services/orderEmailService.js";
+import { getPayfastConfig } from "../config/payfast.js";
 
 function paymentConflict(message) {
   const error = new Error(message);
@@ -11,7 +12,13 @@ function paymentConflict(message) {
   return error;
 }
 
-export async function createSandboxPaymentAttempt(orderId, userId) {
+export async function createPaymentAttempt(orderId, userId) {
+  const config = getPayfastConfig();
+
+  if (!config.checkoutEnabled) {
+    throw paymentConflict("Online payments are temporarily unavailable.");
+  }
+
   const client = await pool.connect();
 
   try {
@@ -34,10 +41,12 @@ export async function createSandboxPaymentAttempt(orderId, userId) {
 
     await assertNoOpenPaymentReconciliation(client, orderId);
 
-    if (!order.is_demo) {
-      throw paymentConflict(
-        "Sandbox payments are currently restricted to demo orders.",
-      );
+    if (config.mode === "sandbox" && !order.is_demo) {
+      throw paymentConflict("Sandbox payments require a demo order.");
+    }
+
+    if (config.mode === "live" && order.is_demo) {
+      throw paymentConflict("Demo orders cannot accept real payments.");
     }
 
     if (
@@ -116,7 +125,8 @@ export async function createSandboxPaymentAttempt(orderId, userId) {
            i.quantity,
            i.reserved_quantity,
            v.is_active AS variant_active,
-           p.is_active AS product_active
+           p.is_active AS product_active,
+           p.is_demo AS product_is_demo
          FROM inventory i
          JOIN product_variants v ON v.id = i.variant_id
          JOIN products p ON p.id = v.product_id
@@ -129,6 +139,12 @@ export async function createSandboxPaymentAttempt(orderId, userId) {
 
       if (!variant || !variant.variant_active || !variant.product_active) {
         throw paymentConflict("An item in this order is no longer available.");
+      }
+
+      if (config.mode === "live" && variant.product_is_demo) {
+        throw paymentConflict(
+          "An item in this order is a demo product and cannot be purchased.",
+        );
       }
 
       if (variant.quantity - variant.reserved_quantity < item.quantity) {
@@ -149,9 +165,9 @@ export async function createSandboxPaymentAttempt(orderId, userId) {
          currency,
          status
        )
-       VALUES ($1, 'payfast_sandbox', $2, $3, 'ZAR', 'created')
+       VALUES ($1, $4, $2, $3, 'ZAR', 'created')
        RETURNING id`,
-      [order.id, paymentReference, amountCents],
+      [order.id, paymentReference, amountCents, config.provider],
     );
 
     const paymentId = payments[0].id;
@@ -183,6 +199,8 @@ export async function createSandboxPaymentAttempt(orderId, userId) {
       orderId: order.id,
       paymentReference,
       amountCents,
+      provider: config.provider,
+      mode: config.mode,
     };
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
@@ -192,11 +210,15 @@ export async function createSandboxPaymentAttempt(orderId, userId) {
   }
 }
 
-export async function completeSandboxPayment({
+export async function completePayment({
   paymentReference,
   providerPaymentId,
   amountCents,
+  provider,
 }) {
+  if (!["payfast_sandbox", "payfast_live"].includes(provider)) {
+    throw paymentConflict("Invalid payment provider.");
+  }
   if (
     !Number.isSafeInteger(amountCents) ||
     amountCents <= 0 ||
@@ -213,12 +235,12 @@ export async function completeSandboxPayment({
 
     // Find the order first, then follow the established lock order:
     // order -> payment -> reservations -> inventory.
-    const { rows: matches } = await client.query(
+        const { rows: matches } = await client.query(
       `SELECT order_id
        FROM payments
        WHERE idempotency_key = $1
-         AND provider = 'payfast_sandbox'`,
-      [paymentReference],
+         AND provider = $2`,
+      [paymentReference, provider],
     );
 
     if (!matches.length) {
@@ -239,9 +261,9 @@ export async function completeSandboxPayment({
       `SELECT *
        FROM payments
        WHERE idempotency_key = $1
-         AND provider = 'payfast_sandbox'
+         AND provider = $2
        FOR UPDATE`,
-      [paymentReference],
+      [paymentReference, provider],
     );
 
     const payment = payments[0];
@@ -249,7 +271,7 @@ export async function completeSandboxPayment({
     if (
       !order ||
       !payment ||
-      !order.is_demo ||
+      order.is_demo !== (provider === "payfast_sandbox") ||
       payment.currency !== "ZAR" ||
       Number(payment.amount_cents) !== amountCents
     ) {
@@ -278,9 +300,9 @@ export async function completeSandboxPayment({
           "Payment records need review before confirmation.",
         );
       }
-          await client.query("COMMIT");
-        return {
-          orderId: order.id,
+      await client.query("COMMIT");
+      return {
+        orderId: order.id,
         alreadyProcessed: true,
       };
     }
@@ -393,10 +415,12 @@ export async function completeSandboxPayment({
       [
         order.id,
         order.status,
-        "PayFast sandbox payment verified. Test stock reservation consumed; no real money collected.",
+        provider === "payfast_live"
+          ? "PayFast payment verified. Reserved stock consumed."
+          : "PayFast sandbox payment verified. Test stock reservation consumed; no real money collected.",
       ],
     );
-       await clearPurchasedCartItems(client, order.id, order.user_id);
+    await clearPurchasedCartItems(client, order.id, order.user_id);
     await queueOrderEmail(client, order.id, "payment_confirmed");
     await client.query("COMMIT");
     return {
@@ -409,4 +433,24 @@ export async function completeSandboxPayment({
   } finally {
     client.release();
   }
+}
+
+// Existing sandbox callers remain restricted to sandbox mode.
+export async function createSandboxPaymentAttempt(orderId, userId) {
+  if (getPayfastConfig().mode !== "sandbox") {
+    throw paymentConflict("This action supports sandbox payments only.");
+  }
+
+  return createPaymentAttempt(orderId, userId);
+}
+
+export async function completeSandboxPayment(notification) {
+  if (getPayfastConfig().mode !== "sandbox") {
+    throw paymentConflict("This action supports sandbox payments only.");
+  }
+
+  return completePayment({
+    ...notification,
+    provider: "payfast_sandbox",
+  });
 }

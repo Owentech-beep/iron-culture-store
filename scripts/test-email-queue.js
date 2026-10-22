@@ -15,11 +15,19 @@ let schemaCreated = false;
 let nextOrderId = 1;
 
 const config = {
+  mode: "test",
+  enabled: true,
   from: "Test <sender@example.com>",
   testRecipient: "recipient@example.com",
 };
 
-async function insertEmail() {
+async function insertEmail({
+  isDemo = true,
+  recipient = "recipient@example.com",
+  subject = isDemo
+    ? "[SANDBOX TEST] Queue test"
+    : "Order received — queue test",
+} = {}) {
   const { rows } = await testPool.query(
     `INSERT INTO email_outbox (
        order_id,
@@ -32,13 +40,13 @@ async function insertEmail() {
      VALUES (
        $1,
        'order_received',
-       'recipient@example.com',
-       '[SANDBOX TEST] Queue test',
+       $2,
+       $3,
        'Disposable test content.',
-       TRUE
+       $4
      )
      RETURNING id`,
-    [nextOrderId++],
+    [nextOrderId++, recipient, subject, isDemo],
   );
 
   return rows[0].id;
@@ -255,7 +263,132 @@ try {
   assert.equal(await claimEmail(config, testPool), null);
   assert.equal((await readEmail(exhaustedId)).status, "review_required");
 
-  console.log("PASS: exhausted attempts require review.");
+   console.log("PASS: exhausted attempts require review.");
+
+  // Test 7: live mode must skip demo records and use the customer address.
+  const liveConfig = {
+    mode: "live",
+    enabled: true,
+    from: "Iron Culture <notifications@ironculturesubs.co.za>",
+    testRecipient: null,
+  };
+
+  const demoId = await insertEmail({
+    recipient: "demo-original@example.com",
+  });
+
+  const liveId = await insertEmail({
+    isDemo: false,
+    recipient: "customer@example.com",
+  });
+
+  const liveClaim = await claimEmail(liveConfig, testPool);
+
+  assert.ok(liveClaim);
+  assert.equal(liveClaim.id, liveId);
+  assert.equal(liveClaim.is_demo, false);
+  assert.deepEqual(
+    liveClaim.delivery_payload.to,
+    ["customer@example.com"],
+  );
+  assert.equal(
+    liveClaim.delivery_payload.subject,
+    "Order received — queue test",
+  );
+  assert.equal((await readEmail(demoId)).status, "pending");
+
+  // Only the pending demo record remains; live mode must ignore it.
+  assert.equal(await claimEmail(liveConfig, testPool), null);
+
+  console.log("PASS: live mode skips demo emails and keeps the customer recipient.");
+
+  // Test 8: test mode uses its test inbox and cannot claim live records.
+  const demoClaim = await claimEmail(config, testPool);
+
+  assert.ok(demoClaim);
+  assert.equal(demoClaim.id, demoId);
+  assert.deepEqual(
+    demoClaim.delivery_payload.to,
+    [config.testRecipient],
+  );
+
+  await recordResult(
+    demoClaim,
+    "sent",
+    "fake-demo-provider-id",
+    null,
+    testPool,
+  );
+
+  await recordResult(
+    liveClaim,
+    "pending",
+    null,
+    "Simulated temporary failure.",
+    testPool,
+  );
+
+  await testPool.query(
+    `UPDATE email_outbox
+     SET available_at = NOW() - INTERVAL '1 second'
+     WHERE id = $1`,
+    [liveId],
+  );
+
+  assert.equal(await claimEmail(config, testPool), null);
+
+  console.log("PASS: test mode redirects demo email only and skips live emails.");
+
+  // Test 9: changing a prepared live recipient must block the retry.
+  await testPool.query(
+    "UPDATE email_outbox SET recipient = $1 WHERE id = $2",
+    ["different@example.com", liveId],
+  );
+
+  await assert.rejects(
+    () => claimEmail(liveConfig, testPool),
+    /saved email payload/i,
+  );
+
+  const blocked = await readEmail(liveId);
+
+  assert.equal(blocked.status, "pending");
+  assert.equal(blocked.attempt_count, 1);
+  assert.equal(blocked.delivery_key, liveClaim.delivery_key);
+  assert.deepEqual(
+    blocked.delivery_payload,
+    liveClaim.delivery_payload,
+  );
+
+  // Restore the original recipient on this disposable record.
+  await testPool.query(
+    "UPDATE email_outbox SET recipient = $1 WHERE id = $2",
+    ["customer@example.com", liveId],
+  );
+
+  const liveRetry = await claimEmail(liveConfig, testPool);
+
+  assert.ok(liveRetry);
+  assert.equal(liveRetry.id, liveId);
+  assert.equal(liveRetry.attempt_count, 2);
+  assert.equal(liveRetry.delivery_key, liveClaim.delivery_key);
+  assert.deepEqual(
+    liveRetry.delivery_payload,
+    liveClaim.delivery_payload,
+  );
+
+  await recordResult(
+    liveRetry,
+    "sent",
+    "fake-live-provider-id",
+    null,
+    testPool,
+  );
+
+  assert.equal((await readEmail(liveId)).status, "sent");
+
+  console.log("PASS: changed live recipient blocks retry without changing its snapshot.");
+  console.log("PASS: valid live retry preserves the original payload and delivery key.");
   console.log("No network requests were made.");
 } catch (error) {
   console.error("TEST FAILED:", error.message);
