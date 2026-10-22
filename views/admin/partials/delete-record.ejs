@@ -17,9 +17,15 @@
     >
 
     <p class="text-muted-custom small">
-      Delete <strong><%= deleteEntry.name %></strong> permanently.
-      This cannot be undone through the admin dashboard.
-      Records with dependencies cannot be deleted.
+      <% if (deleteKind === "products") { %>
+        Remove <strong><%= deleteEntry.name %></strong> from sale and carts.
+        If it has no order or reservation history, the product and all its
+        inventory records will be permanently deleted, even if stock remains.
+        Otherwise, it will be retired and its history and stock preserved.
+      <% } else { %>
+        Delete <strong><%= deleteEntry.name %></strong> permanently.
+        Products must be reassigned before deleting this entry.
+      <% } %>
     </p>
 
     <label
@@ -42,7 +48,7 @@
     >
 
     <button type="submit" class="btn btn-outline-danger">
-      Delete Permanently
+      <%= deleteKind === "products" ? "Remove Product" : "Delete Permanently" %>
     </button>
   </form>
 </details>

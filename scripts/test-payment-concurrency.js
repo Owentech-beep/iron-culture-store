@@ -1,7 +1,7 @@
 import "dotenv/config";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-
+import { deleteAdminEntry } from "../models/AdminDeletion.js";
 import { pool } from "../config/database.js";
 import {
   createSandboxPaymentAttempt,
@@ -28,10 +28,6 @@ async function checkInventory(variantId, quantity, reserved) {
   assert.equal(rows[0].quantity, quantity);
   assert.equal(rows[0].reserved_quantity, reserved);
 }
-
-// Only this test process enables payment creation.
-// The database and sandbox checks above must pass first.
-process.env.PAYFAST_CHECKOUT_ENABLED = "true";
 
 async function checkCounts(ids, payments, reservations) {
   const { rows } = await pool.query(
@@ -88,6 +84,10 @@ try {
     ),
     "Expected a local PostgreSQL server.",
   );
+
+  // Only this test process enables payment creation.
+  // The database and sandbox checks above must pass first.
+  process.env.PAYFAST_CHECKOUT_ENABLED = "true";
 
   // Use an existing account only as an order owner.
   // Its account details and existing orders are never modified.
@@ -313,6 +313,78 @@ try {
 
   assert.equal(beforeEmails[0].total, 0);
   console.log("PASS: wrong amount and provider leave payment state unchanged.");
+
+  // Remove the disposable product while payments hold reservations.
+  const { rows: productBeforeRemoval } = await pool.query(
+    "SELECT slug FROM products WHERE id = $1",
+    [productId],
+  );
+
+  assert.equal(productBeforeRemoval.length, 1);
+
+  const { rows: reservationsBeforeRemoval } = await pool.query(
+    `SELECT r.*
+     FROM stock_reservations r
+     JOIN payments p ON p.id = r.payment_id
+     WHERE p.order_id = ANY($1::INTEGER[])
+     ORDER BY r.id`,
+    [orderIds],
+  );
+
+  const removal = await deleteAdminEntry(
+    "products",
+    productId,
+    productBeforeRemoval[0].slug,
+  );
+
+  assert.equal(removal.outcome, "retired");
+
+  const { rows: retiredProducts } = await pool.query(
+    `SELECT is_active, retired_at
+     FROM products
+     WHERE id = $1`,
+    [productId],
+  );
+
+  assert.equal(retiredProducts.length, 1);
+  assert.equal(retiredProducts[0].is_active, false);
+  assert.ok(retiredProducts[0].retired_at);
+
+  await checkInventory(variantIds[0], 1, 1);
+  await checkInventory(variantIds[1], 3, 1);
+  await checkInventory(variantIds[2], 2, 0);
+  await checkInventory(variantIds[3], 0, 0);
+
+  const { rows: reservationsAfterRemoval } = await pool.query(
+    `SELECT r.*
+     FROM stock_reservations r
+     JOIN payments p ON p.id = r.payment_id
+     WHERE p.order_id = ANY($1::INTEGER[])
+     ORDER BY r.id`,
+    [orderIds],
+  );
+
+  assert.deepEqual(
+    reservationsAfterRemoval,
+    reservationsBeforeRemoval,
+    "Retirement must preserve every reservation unchanged.",
+  );
+
+  console.log(
+    "PASS: removing a reserved product retires it without changing stock or reservations.",
+  );
+
+  // This order previously failed for insufficient stock and has
+  // no payment attempt. Retirement must now prevent a new attempt.
+  await assert.rejects(
+    () => createSandboxPaymentAttempt(orderIds[3], userId),
+    (error) =>
+      error.status === 409 && /no longer available/i.test(error.message),
+  );
+
+  await checkCounts([orderIds[3]], 0, 0);
+
+  console.log("PASS: retired products cannot start new payment attempts.");
 
   // Wait for both calls before assertions or cleanup.
   const confirmations = await Promise.allSettled([

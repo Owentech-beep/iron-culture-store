@@ -11,18 +11,41 @@
   </a>
 </div>
 
+<% if (notice) { %>
+  <div class="notice-panel mb-3" role="status">
+    <%= notice %>
+  </div>
+<% } %>
+
+<div class="d-flex gap-2 mb-3">
+  <a href="/admin/products" class="btn btn-outline-brand">
+    Current Products
+  </a>
+
+  <a href="/admin/products?view=retired" class="btn btn-outline-brand">
+    Retired Products
+  </a>
+</div>
+
+<% if (retiredOnly) { %>
+  <p class="text-muted-custom">
+    These products are no longer for sale. Their records are retained
+    for previous orders and payment reservations.
+  </p>
+<% } %>
+
 <form action="/admin/products" method="GET" class="admin-search mb-4">
   <label for="productSearch" class="visually-hidden">Search products</label>
 
   <input
-    id="productSearch"
-    type="search"
-    name="q"
-    value="<%= search %>"
-    maxlength="100"
-    class="form-control"
-    placeholder="Search product names or slugs"
+  type="hidden"
+  name="view"
+  value="<%= retiredOnly ? 'retired' : 'current' %>"
   >
+
+   <label for="productSearch" class="visually-hidden">
+    Search products
+  </label>
 
   <button type="submit" class="btn btn-outline-brand">Search</button>
 </form>
@@ -65,11 +88,15 @@
             <td><%= product.stock %></td>
 
             <td>
-              <%= product.is_active ? "Published" : "Unpublished" %>
+              <%= product.retired_at
+                ? "Retired"
+                : product.is_active
+                  ? "Published"
+                  : "Draft / Unpublished" %>
             </td>
 
             <td>
-              <div class="d-flex flex-wrap gap-2">
+              <% if (!product.retired_at) { %>
                 <a
                   href="/admin/products/<%= product.id %>/edit"
                   class="btn btn-outline-brand"
@@ -77,27 +104,12 @@
                   Edit
                 </a>
 
-                <% if (product.is_active) { %>
-                  <form
-                    action="/admin/products/<%= product.id %>/archive"
-                    method="POST"
-                  >
-                    <input
-                      type="hidden"
-                      name="_csrf"
-                      value="<%= csrfToken %>"
-                    >
-                    <button type="submit" class="btn btn-outline-brand">
-                      Archive
-                    </button>
-                  </form>
-                <% } %>
-              </div>
-              <% if (!product.is_active) { %>
                 <%- include("partials/delete-record", {
                   deleteKind: "products",
                   deleteEntry: product
                 }) %>
+              <% } else { %>
+                <span class="text-muted-custom">History preserved</span>
               <% } %>
             </td>
           </tr>
@@ -118,6 +130,7 @@
     <a
       class="btn btn-outline-brand"
       href="/admin/products?q=<%= encodeURIComponent(search) %>&page=<%= page - 1 %>"
+      view=<%= retiredOnly ? 'retired' : 'current' %>&
     >
       Previous
     </a>
@@ -129,6 +142,7 @@
     <a
       class="btn btn-outline-brand"
       href="/admin/products?q=<%= encodeURIComponent(search) %>&page=<%= page + 1 %>"
+      view=<%= retiredOnly ? 'retired' : 'current' %>&
     >
       Next
     </a>

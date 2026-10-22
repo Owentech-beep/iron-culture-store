@@ -25,7 +25,6 @@ export async function deleteAdminEntry(kind, id, expectedSlug) {
     await client.query("BEGIN");
     await client.query("SET LOCAL lock_timeout = '5s'");
 
-    // Table names come exclusively from the fixed definitions above.
     const { rows } = await client.query(
       `SELECT *
        FROM ${definition.table}
@@ -41,18 +40,10 @@ export async function deleteAdminEntry(kind, id, expectedSlug) {
     }
 
     if (entry.slug !== expectedSlug) {
-      throw reject(
-        "This record changed. Refresh the page before deleting it.",
-      );
+      throw reject("This record changed. Refresh before removing it.");
     }
 
     if (kind === "products") {
-      if (entry.is_active) {
-        throw reject("Archive this product before permanently deleting it.");
-      }
-
-      // Lock variants so new foreign-key references cannot be added
-      // between the reference checks and deletion.
       await client.query(
         `SELECT id
          FROM product_variants
@@ -63,7 +54,7 @@ export async function deleteAdminEntry(kind, id, expectedSlug) {
       );
 
       const { rows: inventory } = await client.query(
-        `SELECT i.variant_id, i.quantity, i.reserved_quantity
+        `SELECT i.variant_id, i.reserved_quantity
          FROM inventory i
          JOIN product_variants v ON v.id = i.variant_id
          WHERE v.product_id = $1
@@ -71,18 +62,6 @@ export async function deleteAdminEntry(kind, id, expectedSlug) {
          FOR UPDATE OF i`,
         [id],
       );
-
-      if (
-        inventory.some(
-          (item) =>
-            Number(item.quantity) !== 0 ||
-            Number(item.reserved_quantity) !== 0,
-        )
-      ) {
-        throw reject(
-          "This product still has physical or reserved stock. Keep it archived until its inventory is resolved.",
-        );
-      }
 
       const { rows: references } = await client.query(
         `SELECT
@@ -92,35 +71,44 @@ export async function deleteAdminEntry(kind, id, expectedSlug) {
              JOIN product_variants v ON v.id = oi.variant_id
              WHERE v.product_id = $1
            ) AS has_orders,
-
            EXISTS (
              SELECT 1
              FROM stock_reservations r
              JOIN product_variants v ON v.id = r.variant_id
              WHERE v.product_id = $1
-           ) AS has_reservations,
-
-           EXISTS (
-             SELECT 1
-             FROM cart_items ci
-             JOIN product_variants v ON v.id = ci.variant_id
-             WHERE v.product_id = $1
-           ) AS has_carts`,
+           ) AS has_reservations`,
         [id],
       );
 
-      const reference = references[0];
+      const preserveHistory =
+        references[0].has_orders ||
+        references[0].has_reservations ||
+        inventory.some((item) => Number(item.reserved_quantity) !== 0);
 
-      if (reference.has_orders || reference.has_reservations) {
-        throw reject(
-          "This product has order or reservation history. Keep it archived to preserve those records.",
-        );
-      }
+      // Remove these options from customers' current carts.
+      // Existing order items remain separate and unchanged.
+      await client.query(
+        `DELETE FROM cart_items
+         WHERE variant_id IN (
+           SELECT id FROM product_variants WHERE product_id = $1
+         )`,
+        [id],
+      );
 
-      if (reference.has_carts) {
-        throw reject(
-          "This product is still referenced by a shopping cart. Keep it archived for now.",
+      if (preserveHistory) {
+        await client.query(
+          `UPDATE products
+           SET is_active = FALSE,
+               is_featured = FALSE,
+               retired_at = COALESCE(retired_at, NOW())
+           WHERE id = $1`,
+          [id],
         );
+
+        // Do not alter inventory or reservations: an existing
+        // payment can still need to consume its reserved stock.
+        await client.query("COMMIT");
+        return { outcome: "retired" };
       }
 
       await client.query(
@@ -156,7 +144,7 @@ export async function deleteAdminEntry(kind, id, expectedSlug) {
 
       if (products.length > 0) {
         throw reject(
-          "Products still use this entry, including archived products. Reassign them before deleting it.",
+          "Products still use this entry. Reassign them before deleting it, including retired products.",
         );
       }
     }
@@ -167,18 +155,19 @@ export async function deleteAdminEntry(kind, id, expectedSlug) {
     );
 
     await client.query("COMMIT");
+    return { outcome: "deleted" };
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
 
     if (error.code === "23503") {
       throw reject(
-        "Another record depends on this entry. Nothing was deleted.",
+        "A linked record changed during removal. Refresh and try again. Nothing was removed.",
       );
     }
 
     if (["55P03", "40P01"].includes(error.code)) {
       throw reject(
-        "This entry is being updated elsewhere. Refresh and try again.",
+        "This product is being updated elsewhere. Refresh and try again.",
       );
     }
 

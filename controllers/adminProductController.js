@@ -130,14 +130,31 @@ function showAdminError(res, message, status = 409) {
 export async function showProducts(req, res) {
   const search = text(req.query.q).slice(0, 100);
   const requestedPage = positiveId(req.query.page) ?? 1;
+  const retiredOnly = req.query.view === "retired";
 
-  const result = await listAdminProducts(search, requestedPage);
+  const result = await listAdminProducts(
+    search,
+    requestedPage,
+    retiredOnly,
+  );
+
+  const notices = {
+    deleted: "Product permanently deleted, including its inventory and cart entries.",
+    retired: "Product removed from sale. Order history, inventory and reservations were preserved.",
+  };
+
+  const noticeKey = text(req.query.notice);
+  const notice = Object.hasOwn(notices, noticeKey)
+    ? notices[noticeKey]
+    : "";
 
   res.render("admin/products", {
     pageTitle: "Products | Iron Culture Admin",
     metaDescription: "Manage store products.",
     adminPage: "products",
     search,
+    retiredOnly,
+    notice,
     ...result,
     formatMoney,
   });
@@ -156,7 +173,7 @@ export async function showEditProduct(req, res) {
   const id = positiveId(req.params.id);
   const product = id ? await getAdminProduct(id) : null;
 
-  if (!product) {
+  if (!product || product.retired_at) {
     return showAdminError(res, "Product not found.", 404);
   }
 
@@ -172,7 +189,7 @@ export async function saveProduct(req, res) {
 
   const existing = id ? await getAdminProduct(id) : null;
 
-  if (id && !existing) {
+  if (id && (!existing || existing.retired_at)) {
     return showAdminError(res, "Product not found.", 404);
   }
 
@@ -237,7 +254,7 @@ export async function addVariant(req, res) {
   const id = positiveId(req.params.id);
   const product = id ? await getAdminProduct(id) : null;
 
-  if (!product) {
+  if (!product || product.retired_at) {
     return showAdminError(res, "Product not found.", 404);
   }
 

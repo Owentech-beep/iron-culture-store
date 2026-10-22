@@ -1,30 +1,38 @@
 import { randomUUID } from "node:crypto";
 import { pool } from "../config/database.js";
 
-export async function listAdminProducts(search, requestedPage) {
-  const parameters = [`%${search}%`];
+export async function listAdminProducts(
+  search,
+  requestedPage,
+  retiredOnly = false,
+) {
+  const parameters = [`%${search}%`, retiredOnly];
 
   const countResult = await pool.query(
     `SELECT COUNT(*)::INTEGER AS total
-     FROM products
-     WHERE name ILIKE $1 OR slug ILIKE $1`,
+     FROM products p
+     WHERE (p.name ILIKE $1 OR p.slug ILIKE $1)
+       AND (p.retired_at IS NOT NULL) = $2::BOOLEAN`,
     parameters,
   );
 
   const total = countResult.rows[0].total;
   const pageSize = 20;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const page = Math.min(requestedPage, totalPages);
+  const page = Math.min(Math.max(1, requestedPage), totalPages);
 
   const result = await pool.query(
     `SELECT
-      catalogue_products.*,
-      display_price AS price,
-      display_sale_price AS sale_price
-      FROM catalogue_products
-     WHERE name ILIKE $1 OR slug ILIKE $1
-     ORDER BY id DESC
-     LIMIT $2 OFFSET $3`,
+       cp.*,
+       p.retired_at,
+       cp.display_price AS price,
+       cp.display_sale_price AS sale_price
+     FROM catalogue_products cp
+     JOIN products p ON p.id = cp.id
+     WHERE (p.name ILIKE $1 OR p.slug ILIKE $1)
+       AND (p.retired_at IS NOT NULL) = $2::BOOLEAN
+     ORDER BY cp.id DESC
+     LIMIT $3 OFFSET $4`,
     [...parameters, pageSize, (page - 1) * pageSize],
   );
 
@@ -121,7 +129,7 @@ export async function saveAdminProduct(id, data) {
            is_featured = $9,
            is_demo = $10,
            is_active = $11
-         WHERE id = $12
+         WHERE id = $12 AND retired_at IS NULL
          RETURNING id`,
         [...values, data.is_active, id],
       );
@@ -213,6 +221,21 @@ export async function addAdminVariant(
   try {
     await client.query("BEGIN");
 
+        const product = await client.query(
+      `SELECT id
+       FROM products
+       WHERE id = $1 AND retired_at IS NULL
+       FOR UPDATE`,
+      [productId],
+    );
+
+    if (!product.rowCount) {
+      const error = new Error("Product not found or already retired.");
+      error.status = 409;
+      error.publicMessage = error.message;
+      throw error;
+    }
+
     const result = await client.query(
       `INSERT INTO product_variants (
          product_id,
@@ -269,7 +292,8 @@ export async function listAdminInventory(search) {
      FROM product_variants v
      JOIN products p ON p.id = v.product_id
      JOIN inventory i ON i.variant_id = v.id
-     WHERE p.name ILIKE $1 OR v.sku ILIKE $1
+     WHERE (p.name ILIKE $1 OR v.sku ILIKE $1)
+     AND p.retired_at IS NULL
      ORDER BY p.name, v.id
      LIMIT 100`,
     [`%${search}%`],

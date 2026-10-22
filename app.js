@@ -19,6 +19,7 @@ import paymentRoutes from "./routes/paymentRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import payfastNotificationRoutes from "./routes/payfastNotificationRoutes.js";
 import newsletterRoutes from "./routes/newsletterRoutes.js";
+import { startEmailWorkerProcess } from "./services/emailWorkerProcess.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -92,6 +93,8 @@ app.use(notFound);
 app.use(errorHandler);
 
 async function startServer() {
+  let emailWorker = null;
+
   try {
     if (!Number.isInteger(port) || port < 1 || port > 65535) {
       throw new Error("PORT must be an integer between 1 and 65535.");
@@ -100,44 +103,65 @@ async function startServer() {
     await checkDatabaseConnection();
     console.log("PostgreSQL connected.");
 
+    emailWorker = startEmailWorkerProcess();
+
     const server = app.listen(port, () => {
       console.log(`Iron Culture is running at http://localhost:${port}`);
     });
 
-    server.on("error", async (error) => {
-      console.error("HTTP server error:", error.message);
-      await pool.end();
-      process.exit(1);
-    });
-
     let shuttingDown = false;
 
-    function shutdown(signal) {
+    async function shutdown(reason, exitCode = 0) {
       if (shuttingDown) return;
       shuttingDown = true;
 
-      console.log(`${signal} received. Closing server.`);
+      console.log(`${reason}. Closing server and email watcher.`);
 
       const timeout = setTimeout(() => {
+        console.error("Shutdown timed out.");
         process.exit(1);
-      }, 10_000);
+      }, 45_000);
 
       timeout.unref();
 
-      server.close(async () => {
-        try {
-          await pool.end();
-          clearTimeout(timeout);
-          process.exit(0);
-        } catch (error) {
-          console.error("Shutdown failed:", error.message);
-          process.exit(1);
-        }
-      });
+      try {
+        const httpClosed = new Promise((resolve, reject) => {
+          server.close((error) => {
+            if (error && error.code !== "ERR_SERVER_NOT_RUNNING") {
+              reject(error);
+              return;
+            }
+
+            resolve();
+          });
+        });
+
+        await Promise.all([
+          httpClosed,
+          emailWorker.stop(),
+        ]);
+
+        await pool.end();
+        clearTimeout(timeout);
+        process.exit(exitCode);
+      } catch (error) {
+        console.error("Shutdown failed:", error.message);
+        process.exit(1);
+      }
     }
 
-    process.on("SIGINT", () => shutdown("SIGINT"));
-    process.on("SIGTERM", () => shutdown("SIGTERM"));
+    server.on("error", (error) => {
+      console.error("HTTP server error:", error.message);
+      void shutdown("HTTP server failure", 1);
+    });
+
+    process.on("SIGINT", () => {
+      void shutdown("SIGINT received");
+    });
+
+    process.on("SIGTERM", () => {
+      void shutdown("SIGTERM received");
+    });
   } catch (error) {
     console.error("Application startup failed:", {
       name: error.name,
@@ -150,6 +174,8 @@ async function startServer() {
         port: item.port,
       })),
     });
+
+    await emailWorker?.stop();
     await pool.end();
     process.exit(1);
   }

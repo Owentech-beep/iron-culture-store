@@ -46,8 +46,10 @@ export async function deleteCatalogueRecord(req, res) {
     );
   }
 
+   let result;
+
   try {
-    await deleteAdminEntry(kind, Number(rawId), expectedSlug);
+    result = await deleteAdminEntry(kind, Number(rawId), expectedSlug);
   } catch (error) {
     if (error.publicMessage) {
       return renderProblem(res, error.publicMessage, error.status);
@@ -59,7 +61,7 @@ export async function deleteCatalogueRecord(req, res) {
   return res.redirect(
     303,
     kind === "products"
-      ? "/admin/products"
+      ? `/admin/products?notice=${result.outcome}`
       : `/admin/catalogue/${kind}`,
   );
 }

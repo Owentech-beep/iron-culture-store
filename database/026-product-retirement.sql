@@ -1,0 +1,6 @@
+BEGIN;
+
+ALTER TABLE public.products
+  ADD COLUMN IF NOT EXISTS retired_at TIMESTAMPTZ;
+
+COMMIT;
