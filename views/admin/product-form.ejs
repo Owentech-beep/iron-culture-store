@@ -434,6 +434,52 @@
     </noscript>
   </section>
 
+  <section class="admin-panel p-4 mt-4">
+  <h2 class="h5 mb-3">Second Product Image</h2>
+
+  <p class="text-muted-custom">
+    Add a back view or another product photo.
+    Uploading here replaces only the second image.
+    Save other product edits first; the page reloads after uploading.
+  </p>
+
+  <form
+    id="secondImageUpload"
+    action="/admin/products/<%= values.id %>/second-image"
+    method="POST"
+    enctype="multipart/form-data"
+    data-csrf="<%= csrfToken %>"
+    class="admin-form"
+  >
+    <label for="secondImageFile" class="form-label">
+      JPEG, PNG or WebP — maximum 5 MB
+    </label>
+
+    <input
+      id="secondImageFile"
+      name="image"
+      type="file"
+      accept="image/jpeg,image/png,image/webp"
+      class="form-control mb-3"
+      required
+    >
+
+    <button type="submit" class="btn btn-brand">
+      Upload / Replace Second Image
+    </button>
+
+    <p
+      class="text-muted-custom mt-3 mb-0"
+      role="status"
+      aria-live="polite"
+    ></p>
+  </form>
+
+  <noscript>
+    <p>Enable JavaScript to upload the second image.</p>
+  </noscript>
+</section>
+
   <% if (values.id) { %>
   <section class="admin-panel p-4 mt-4">
     <h2 class="h5 mb-3">Nutrition Label</h2>
