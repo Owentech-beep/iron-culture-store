@@ -10,7 +10,7 @@ export const provinces = [
   "Western Cape",
 ];
 
-const freeDeliveryThresholdCents = 55000;
+const freeDeliveryThresholdCents = 75000;
 
 export function calculateShipping(subtotalCents, discountCents = 0) {
   const eligibleSubtotal = subtotalCents - discountCents;
