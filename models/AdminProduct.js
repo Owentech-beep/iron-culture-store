@@ -320,3 +320,45 @@ export async function updateAdminStock(
 
   return result.rowCount === 1;
 }
+
+export async function updateAdminVariantPrices(
+  productId,
+  variantId,
+  { price, salePrice },
+) {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // Match the product-first lock used by product retirement.
+    const product = await client.query(
+      `SELECT id
+       FROM products
+       WHERE id = $1 AND retired_at IS NULL
+       FOR UPDATE`,
+      [productId],
+    );
+
+    if (!product.rowCount) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+
+    const result = await client.query(
+      `UPDATE product_variants
+       SET price = $1, sale_price = $2
+       WHERE id = $3 AND product_id = $4
+       RETURNING id`,
+      [price, salePrice || null, variantId, productId],
+    );
+
+    await client.query("COMMIT");
+    return result.rowCount === 1;
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}

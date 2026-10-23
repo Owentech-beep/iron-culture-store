@@ -7,6 +7,7 @@ import {
   addAdminVariant,
   listAdminInventory,
   updateAdminStock,
+  updateAdminVariantPrices,
 } from "../models/AdminProduct.js";
 import { isAllowedProductImageUrl } from "../services/productImageStorage.js";
 import { createSlug } from "../services/slugService.js";
@@ -368,4 +369,89 @@ export async function saveStock(req, res) {
   }
 
   return res.redirect(303, "/admin/inventory");
+}
+
+export async function saveVariantPrices(req, res) {
+  const productId = positiveId(req.params.id);
+  const variantId = positiveId(req.params.variantId);
+
+  if (!productId || !variantId) {
+    return showAdminError(res, "Invalid product option.", 400);
+  }
+
+  const product = await getAdminProduct(productId);
+
+  if (
+    !product ||
+    !product.variants.some((variant) => Number(variant.id) === variantId)
+  ) {
+    return showAdminError(res, "Product option not found.", 404);
+  }
+
+  if (product.retired_at) {
+    return showAdminError(res, "Retired products cannot be edited.", 409);
+  }
+
+  // Require both fields so an incomplete request cannot silently end a sale.
+  if (
+    typeof req.body.price !== "string" ||
+    typeof req.body.sale_price !== "string"
+  ) {
+    return showAdminError(res, "Submit both price fields.", 400);
+  }
+
+  const price = text(req.body.price);
+  const salePrice = text(req.body.sale_price);
+  const regularCents = priceCents(price);
+  const saleCents = salePrice ? priceCents(salePrice) : null;
+  const errors = [];
+
+  if (regularCents === null || regularCents <= 0) {
+    errors.push("Enter a regular price greater than zero with up to two decimals.");
+  }
+
+  if (
+    salePrice &&
+    (
+      saleCents === null ||
+      saleCents <= 0 ||
+      regularCents === null ||
+      saleCents >= regularCents
+    )
+  ) {
+    errors.push(
+      "Sale price must be greater than zero and below the regular price. Leave it blank to end the sale.",
+    );
+  }
+
+  if (errors.length) {
+    const values = {
+      ...product,
+      variants: product.variants.map((variant) =>
+        Number(variant.id) === variantId
+          ? { ...variant, price, sale_price: salePrice }
+          : variant
+      ),
+    };
+
+    return renderForm(res, values, errors, 400);
+  }
+
+  const updated = await updateAdminVariantPrices(productId, variantId, {
+    price,
+    salePrice,
+  });
+
+  if (!updated) {
+    return showAdminError(
+      res,
+      "The product option was removed or retired. Refresh the product list.",
+      409,
+    );
+  }
+
+  return res.redirect(
+    303,
+    `/admin/products/${productId}/edit#option-pricing`,
+  );
 }

@@ -206,6 +206,79 @@
       </table>
     </div>
 
+    <div id="option-pricing" class="mb-4">
+      <h3 class="h5">Edit Option Prices</h3>
+
+      <p class="text-muted-custom">
+        Update prices for an existing size and flavour.
+        To end a sale, clear its sale price and click Save Prices.
+        Save other product edits before using these forms.
+      </p>
+
+      <% values.variants.forEach((variant) => { %>
+        <form
+          action="/admin/products/<%= values.id %>/variants/<%= variant.id %>/prices"
+          method="POST"
+          class="admin-form border rounded p-3 mb-3"
+        >
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+          <h4 class="h6">
+            <%= variant.size || "Size not assigned" %>
+            · <%= variant.flavour %>
+          </h4>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="edit-price-<%= variant.id %>" class="form-label">
+                Regular price (R)
+              </label>
+
+              <input
+                id="edit-price-<%= variant.id %>"
+                name="price"
+                type="number"
+                class="form-control"
+                min="0.01"
+                max="9999999.99"
+                step="0.01"
+                value="<%= variant.price ?? '' %>"
+                required
+              >
+            </div>
+
+            <div class="col-md-6">
+              <label for="edit-sale-<%= variant.id %>" class="form-label">
+                Sale price (optional)
+              </label>
+
+              <input
+                id="edit-sale-<%= variant.id %>"
+                name="sale_price"
+                type="number"
+                class="form-control"
+                min="0.01"
+                max="9999999.99"
+                step="0.01"
+                value="<%= variant.sale_price ?? '' %>"
+                aria-describedby="sale-help-<%= variant.id %>"
+              >
+
+              <p id="sale-help-<%= variant.id %>" class="auth-help">
+                Leave blank to sell at the regular price.
+              </p>
+            </div>
+
+            <div class="col-12">
+              <button type="submit" class="btn btn-brand">
+                Save Prices
+              </button>
+            </div>
+          </div>
+        </form>
+      <% }); %>
+    </div>
+
     <form
       action="/admin/products/<%= values.id %>/variants"
       method="POST"

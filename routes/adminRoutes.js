@@ -10,6 +10,7 @@ import {
   addVariant,
   showInventory,
   saveStock,
+  saveVariantPrices,
 } from "../controllers/adminProductController.js";
 import {
   showCatalogue,
@@ -59,6 +60,10 @@ router.get("/products/:id/edit", showEditProduct);
 router.post("/products/:id", saveProduct);
 router.post("/products/:id/archive", archiveProduct);
 router.post("/products/:id/variants", addVariant);
+router.post(
+  "/products/:id/variants/:variantId/prices",
+  saveVariantPrices,
+);
 
 router.get("/inventory", showInventory);
 router.post("/inventory/:id", saveStock);
@@ -97,5 +102,6 @@ router.post(
   "/products/:id/nutrition-image/remove",
   removeNutritionImage,
 );
+
 
 export default router;
