@@ -109,3 +109,60 @@ async function uploadImageAtPosition(req, res, position) {
     imageUrl: uploaded.imageUrl,
   });
 }
+
+export function removeMainImage(req, res) {
+  return removeImageAtPosition(req, res, 0);
+}
+
+export function removeSecondImage(req, res) {
+  return removeImageAtPosition(req, res, 1);
+}
+
+async function removeImageAtPosition(req, res, position) {
+  const rawId = req.params.id;
+
+  if (!/^[1-9]\d*$/.test(rawId) || Number(rawId) > 2147483647) {
+    return res.status(400).json({ error: "Invalid product." });
+  }
+
+  const productId = Number(rawId);
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const product = await client.query(
+      `SELECT id
+       FROM products
+       WHERE id = $1 AND retired_at IS NULL
+       FOR UPDATE`,
+      [productId],
+    );
+
+    if (!product.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({
+        error: "Product not found or already retired.",
+      });
+    }
+
+    await client.query(
+      `DELETE FROM product_images
+       WHERE product_id = $1 AND position = $2`,
+      [productId, position],
+    );
+
+    await client.query("COMMIT");
+
+    return res.json({
+      message: position === 0
+        ? "Main image removed."
+        : "Second image removed.",
+    });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}

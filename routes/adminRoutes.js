@@ -20,6 +20,8 @@ import { receiveProductImage } from "../middleware/imageUploadMiddleware.js";
 import {
   uploadMainImage,
   uploadSecondImage,
+  removeMainImage,
+  removeSecondImage,
 } from "../controllers/adminImageController.js";
 import {
   showAdminOrders,
@@ -80,6 +82,8 @@ router.post(
   receiveProductImage,
   uploadSecondImage,
 );
+router.post("/products/:id/image/remove", removeMainImage);
+router.post("/products/:id/second-image/remove", removeSecondImage);
 router.get("/orders", showAdminOrders);
 router.get("/orders/:id", showAdminOrder);
 router.get("/customers", showCustomers);

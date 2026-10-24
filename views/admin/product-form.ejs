@@ -427,6 +427,26 @@
       ></p>
     </form>
 
+    <% if (values.image_url) { %>
+      <form
+        action="/admin/products/<%= values.id %>/image/remove"
+        method="POST"
+        class="mt-3"
+        data-remove-product-image
+        data-csrf="<%= csrfToken %>"
+      >
+        <button type="submit" class="btn btn-outline-danger" disabled>
+          Remove Main Image
+        </button>
+
+        <p
+          class="text-muted-custom mt-2 mb-0"
+          role="status"
+          aria-live="polite"
+        >Save other product edits before removing this image.</p>
+      </form>
+    <% } %>
+
     <noscript>
       <p class="cart-warning">
         Enable JavaScript to use the image uploader.
@@ -484,6 +504,26 @@
       aria-live="polite"
     ></p>
   </form>
+
+  <% if (values.second_image_url) { %>
+  <form
+    action="/admin/products/<%= values.id %>/second-image/remove"
+    method="POST"
+    class="mt-3"
+    data-remove-product-image
+    data-csrf="<%= csrfToken %>"
+  >
+    <button type="submit" class="btn btn-outline-danger" disabled>
+      Remove Second Image
+    </button>
+
+    <p
+      class="text-muted-custom mt-2 mb-0"
+      role="status"
+      aria-live="polite"
+    >Save other product edits before removing this image.</p>
+  </form>
+<% } %>
 
   <noscript>
     <p>Enable JavaScript to upload the second image.</p>
@@ -569,7 +609,7 @@
   <script src="/js/admin-nutrition.js" defer></script>
 <% } %>
 
-  <script src="/js/admin-image.js?v=2" defer></script>
+  <script src="/js/admin-image.js?v=3" defer></script>
 <% } %>
 
 <%- include("partials/footer") %>
