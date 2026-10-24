@@ -110,6 +110,14 @@
         Inventory
         </a>
 
+        <a
+          href="/admin/goals"
+          class="admin-nav-link <%= adminPage === 'goals' ? 'active' : '' %>"
+          <% if (adminPage === "goals") { %>aria-current="page"<% } %>
+        >
+          Goal Collections
+        </a>
+
         <a href="/account" class="admin-nav-link">
           My Account
         </a>

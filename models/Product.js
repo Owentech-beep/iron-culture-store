@@ -284,3 +284,41 @@ export async function getDealProducts() {
 
   return result.rows.map(mapProduct);
 }
+
+export async function getGoalCollections() {
+  const { rows } = await pool.query(
+    `SELECT
+       cp.*,
+       g.slug AS goal_slug,
+       g.name AS goal_name
+     FROM product_goals g
+     JOIN product_goal_items gi ON gi.goal_slug = g.slug
+     JOIN products p ON p.id = gi.product_id
+     JOIN catalogue_products cp ON cp.id = p.id
+     WHERE g.is_active
+       AND p.is_active
+       AND p.retired_at IS NULL
+       AND NOT p.is_demo
+       AND cp.effective_price IS NOT NULL
+     ORDER BY g.position, g.slug, gi.position`,
+  );
+
+  const collections = new Map();
+
+  for (const row of rows) {
+    if (!collections.has(row.goal_slug)) {
+      collections.set(row.goal_slug, {
+        slug: row.goal_slug,
+        name: row.goal_name,
+        products: [],
+      });
+    }
+
+    collections.get(row.goal_slug).products.push(mapProduct(row));
+  }
+
+  // A combination needs at least two currently published products.
+  return [...collections.values()].filter(
+    (collection) => collection.products.length >= 2,
+  );
+}

@@ -37,13 +37,15 @@ import {
 } from "../controllers/adminCustomerController.js";
 import { receiveBrandLogo } from "../middleware/brandLogoUploadMiddleware.js";
 import { uploadBrandLogo } from "../controllers/adminBrandLogoController.js";
-import {
-  deleteCatalogueRecord,
-} from "../controllers/adminDeletionController.js";
+import { deleteCatalogueRecord } from "../controllers/adminDeletionController.js";
 import {
   uploadNutritionImage,
   removeNutritionImage,
 } from "../controllers/adminNutritionController.js";
+import {
+  showGoals,
+  saveGoal,
+} from "../controllers/adminGoalController.js";
 
 const router = Router();
 
@@ -65,16 +67,15 @@ router.get("/products/:id/edit", showEditProduct);
 router.post("/products/:id", saveProduct);
 router.post("/products/:id/archive", archiveProduct);
 router.post("/products/:id/variants", addVariant);
-router.post(
-  "/products/:id/variants/:variantId/prices",
-  saveVariantPrices,
-);
+router.post("/products/:id/variants/:variantId/prices", saveVariantPrices);
 
 router.get("/inventory", showInventory);
 router.post("/inventory/:id", saveStock);
 router.get("/catalogue/:kind", showCatalogue);
 router.post("/catalogue/:kind", saveCatalogue);
 router.post("/catalogue/:kind/:id", saveCatalogue);
+router.get("/goals", showGoals);
+router.post("/goals/:slug", saveGoal);
 
 router.post("/products/:id/image", receiveProductImage, uploadMainImage);
 router.post(
@@ -92,17 +93,13 @@ router.post("/orders/:id/delivery-quote", submitDeliveryQuote);
 router.post("/orders/:id/status", submitOrderStatus);
 router.post(
   "/orders/:id/payments/:paymentId/close-sandbox",
-  submitSandboxRecovery
+  submitSandboxRecovery,
 );
 router.post(
   "/orders/:id/reconciliation/:alertId/resolve",
-  submitReconciliationResolution
+  submitReconciliationResolution,
 );
-router.post(
-  "/catalogue/brands/:id/logo",
-  receiveBrandLogo,
-  uploadBrandLogo,
-);
+router.post("/catalogue/brands/:id/logo", receiveBrandLogo, uploadBrandLogo);
 router.post("/cleanup/:kind/:id", deleteCatalogueRecord);
 router.post(
   "/products/:id/nutrition-image",
@@ -110,10 +107,6 @@ router.post(
   uploadNutritionImage,
 );
 
-router.post(
-  "/products/:id/nutrition-image/remove",
-  removeNutritionImage,
-);
-
+router.post("/products/:id/nutrition-image/remove", removeNutritionImage);
 
 export default router;

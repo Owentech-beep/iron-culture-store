@@ -3,16 +3,31 @@ import {
   getBrands,
   getFeaturedProducts,
   getDealProducts,
+  getGoalCollections,
 } from "../models/Product.js";
 
 export async function getHome(req, res) {
-  const [categoryRows, brands, featuredProducts, dealProducts] =
-    await Promise.all([
-      getCategories(),
-      getBrands(),
-      getFeaturedProducts(),
-      getDealProducts(),
-    ]);
+  const [
+    categoryRows,
+    brands,
+    featuredProducts,
+    dealProducts,
+    goalCollections,
+  ] = await Promise.all([
+    getCategories(),
+    getBrands(),
+    getFeaturedProducts(),
+    getDealProducts(),
+    getGoalCollections(),
+  ]);
+
+  const requestedGoal =
+    typeof req.query.goal === "string" ? req.query.goal : "";
+
+  const selectedGoal =
+    goalCollections.find((goal) => goal.slug === requestedGoal) ??
+    goalCollections[0] ??
+    null;
 
   const categories = categoryRows.map((category, index) => ({
     ...category,
@@ -36,5 +51,7 @@ export async function getHome(req, res) {
     featuredProducts,
     dealProducts,
     formatMoney,
+    goalCollections,
+    selectedGoal,
   });
 }

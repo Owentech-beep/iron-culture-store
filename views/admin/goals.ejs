@@ -1,0 +1,106 @@
+<%- include("partials/header") %>
+
+<div class="admin-page-heading">
+  <div>
+    <p class="eyebrow">CATALOGUE MANAGEMENT</p>
+    <h1 class="section-title mb-0">Goal Collections</h1>
+  </div>
+</div>
+
+<p class="text-muted-custom">
+  Choose two to four products for each published goal.
+  Customers choose their sizes and flavours on the product pages.
+  Save each collection separately.
+</p>
+
+<% if (saved) { %>
+  <div class="notice-panel mb-4" role="status">
+    Goal collection saved.
+  </div>
+<% } %>
+
+<% goals.forEach((goal) => { %>
+  <section class="admin-panel p-4 mb-4">
+    <h2 class="h5"><%= goal.name %></h2>
+
+    <form
+      action="/admin/goals/<%= goal.slug %>"
+      method="POST"
+      class="admin-form"
+    >
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+      <div class="row g-3">
+        <% for (let index = 0; index < 4; index += 1) { %>
+          <%
+            const selected = goal.items.find(
+              (item) => item.position === index
+            );
+            const eligible = selected && products.some(
+              (product) => product.id === selected.id
+            );
+          %>
+
+          <div class="col-md-6">
+            <label
+              for="<%= goal.slug %>-product-<%= index %>"
+              class="form-label"
+            >
+              Product <%= index + 1 %>
+            </label>
+
+            <select
+              id="<%= goal.slug %>-product-<%= index %>"
+              name="product<%= index + 1 %>"
+              class="form-select"
+            >
+              <option value="">No product selected</option>
+
+              <% if (selected && !eligible) { %>
+                <option value="<%= selected.id %>" selected>
+                  <%= selected.name %> — unavailable; replace or clear
+                </option>
+              <% } %>
+
+              <% products.forEach((product) => { %>
+                <option
+                  value="<%= product.id %>"
+                  <%= selected?.id === product.id ? "selected" : "" %>
+                >
+                  <%= product.name %>
+                </option>
+              <% }); %>
+            </select>
+          </div>
+        <% } %>
+
+        <div class="col-12">
+          <div class="form-check">
+            <input
+              id="<%= goal.slug %>-published"
+              name="is_active"
+              type="checkbox"
+              class="form-check-input"
+              <%= goal.is_active ? "checked" : "" %>
+            >
+
+            <label
+              for="<%= goal.slug %>-published"
+              class="form-check-label"
+            >
+              Publish this collection
+            </label>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <button type="submit" class="btn btn-brand">
+            Save <%= goal.name %>
+          </button>
+        </div>
+      </div>
+    </form>
+  </section>
+<% }); %>
+
+<%- include("partials/footer") %>
