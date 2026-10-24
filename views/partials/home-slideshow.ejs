@@ -1,0 +1,75 @@
+<% if (homeSlides.length > 0) { %>
+  <section
+    class="section-space home-slideshow"
+    aria-labelledby="home-slideshow-heading"
+    data-home-slideshow
+    aria-roledescription="carousel"
+  >
+    <div class="container">
+      <p class="eyebrow">THE IRON CULTURE COMMUNITY</p>
+
+      <h2 id="home-slideshow-heading" class="section-title">
+        Training & Highlights
+      </h2>
+
+      <div class="home-slideshow-frame">
+        <% homeSlides.forEach((slide, index) => { %>
+          <figure
+            class="home-slide"
+            data-home-slide
+            role="group"
+            aria-roledescription="slide"
+            aria-label="<%= index + 1 %> of <%= homeSlides.length %>"
+          >
+            <% if (slide.media_type === "video") { %>
+              <video
+                src="<%= slide.media_url %>"
+                controls
+                playsinline
+                preload="none"
+                aria-label="<%= slide.title %>"
+              ></video>
+            <% } else { %>
+              <img
+                src="<%= slide.media_url %>"
+                alt="<%= slide.title %>"
+                loading="lazy"
+                decoding="async"
+              >
+            <% } %>
+
+            <figcaption>
+              <h3><%= slide.title %></h3>
+
+              <% if (slide.caption) { %>
+                <p class="preserve-lines mb-0"><%= slide.caption %></p>
+              <% } %>
+            </figcaption>
+          </figure>
+        <% }); %>
+      </div>
+
+      <div class="home-slide-controls" data-slide-controls hidden>
+        <button
+          type="button"
+          class="btn btn-outline-brand"
+          data-slide-previous
+          aria-label="Previous slide"
+        >
+          Previous
+        </button>
+
+        <span data-slide-counter role="status" aria-live="polite"></span>
+
+        <button
+          type="button"
+          class="btn btn-outline-brand"
+          data-slide-next
+          aria-label="Next slide"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  </section>
+<% } %>

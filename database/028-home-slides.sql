@@ -1,0 +1,17 @@
+BEGIN;
+
+CREATE TABLE home_slides (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  title VARCHAR(120) NOT NULL DEFAULT 'New slide',
+  caption VARCHAR(500) NOT NULL DEFAULT '',
+  media_type VARCHAR(10) NOT NULL
+    CHECK (media_type IN ('image', 'video')),
+  media_url TEXT NOT NULL,
+  public_id TEXT NOT NULL UNIQUE,
+  position INTEGER NOT NULL DEFAULT 0
+    CHECK (position BETWEEN 0 AND 9999),
+  is_active BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMIT;

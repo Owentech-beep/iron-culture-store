@@ -5,6 +5,7 @@ import {
   getDealProducts,
   getGoalCollections,
 } from "../models/Product.js";
+import { listHomeSlides } from "../models/HomeSlide.js";
 
 export async function getHome(req, res) {
   const [
@@ -13,12 +14,14 @@ export async function getHome(req, res) {
     featuredProducts,
     dealProducts,
     goalCollections,
+    homeSlides,
   ] = await Promise.all([
     getCategories(),
     getBrands(),
     getFeaturedProducts(),
     getDealProducts(),
     getGoalCollections(),
+    listHomeSlides(true),
   ]);
 
   const requestedGoal =
@@ -53,5 +56,6 @@ export async function getHome(req, res) {
     formatMoney,
     goalCollections,
     selectedGoal,
+    homeSlides,
   });
 }

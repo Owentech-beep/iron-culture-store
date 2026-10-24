@@ -42,10 +42,14 @@ import {
   uploadNutritionImage,
   removeNutritionImage,
 } from "../controllers/adminNutritionController.js";
+import { showGoals, saveGoal } from "../controllers/adminGoalController.js";
 import {
-  showGoals,
-  saveGoal,
-} from "../controllers/adminGoalController.js";
+  showSlides,
+  uploadSlide,
+  saveSlide,
+  removeSlide,
+} from "../controllers/adminSlideController.js";
+import { receiveHomeSlide } from "../middleware/homeSlideUploadMiddleware.js";
 
 const router = Router();
 
@@ -76,6 +80,10 @@ router.post("/catalogue/:kind", saveCatalogue);
 router.post("/catalogue/:kind/:id", saveCatalogue);
 router.get("/goals", showGoals);
 router.post("/goals/:slug", saveGoal);
+router.get("/slides", showSlides);
+router.post("/slides/upload", receiveHomeSlide, uploadSlide);
+router.post("/slides/:id/save", saveSlide);
+router.post("/slides/:id/remove", removeSlide);
 
 router.post("/products/:id/image", receiveProductImage, uploadMainImage);
 router.post(

@@ -2627,3 +2627,62 @@ body:has(.whatsapp-contact) .site-footer {
   min-width: 0;
   min-height: 0;
 }
+/* Homepage slideshow */
+.home-slideshow-frame,
+.home-slide-controls {
+  max-width: 860px;
+  margin-inline: auto;
+}
+
+.home-slide {
+  margin: 0 0 1rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background-secondary);
+}
+
+.home-slide[hidden],
+.home-slide-controls[hidden] {
+  display: none !important;
+}
+
+.home-slide > img,
+.home-slide > video {
+  display: block;
+  width: 100%;
+  height: clamp(220px, 42vw, 420px);
+  object-fit: contain;
+  background: #080808;
+}
+
+.home-slide > img {
+  touch-action: pan-y pinch-zoom;
+}
+
+.home-slide figcaption {
+  padding: 1.25rem;
+  overflow-wrap: anywhere;
+}
+
+.home-slide figcaption h3 {
+  margin-bottom: 0.5rem;
+  font-size: 1.2rem;
+}
+
+.home-slide-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.slide-admin-preview {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  max-height: 320px;
+  object-fit: contain;
+  background: #080808;
+}

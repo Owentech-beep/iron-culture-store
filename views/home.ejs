@@ -43,6 +43,8 @@
     </div>
   </section>
 
+  <%- include("partials/home-slideshow", { homeSlides }) %>
+
     <!-- CATEGORIES -->
   <section
     id="categories"
@@ -100,7 +102,6 @@
       <% } %>
     </div>
   </section>
-
 
   <!-- PRODUCT SECTION -->
   <section
@@ -359,4 +360,5 @@
 </main>
 
 <%- include("partials/footer") %>
+<script src="/js/home-slideshow.js?v=1" defer></script>
 <%- include("partials/scripts") %>
