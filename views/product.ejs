@@ -32,6 +32,41 @@
           </div>
 
           <% if (images.length > 1) { %>
+            <div
+              id="productGalleryControls"
+              class="d-flex align-items-center justify-content-between gap-2 mt-3"
+              hidden
+            >
+              <button
+                id="previousProductImage"
+                type="button"
+                class="btn btn-outline-brand"
+                aria-label="Previous product image"
+                aria-controls="mainProductImage"
+              >
+                Previous
+              </button>
+
+              <span
+                id="productImageCounter"
+                class="text-muted-custom"
+                role="status"
+                aria-live="polite"
+              >
+                1 / <%= images.length %>
+              </span>
+
+              <button
+                id="nextProductImage"
+                type="button"
+                class="btn btn-outline-brand"
+                aria-label="Next product image"
+                aria-controls="mainProductImage"
+              >
+                Next
+              </button>
+            </div>
+
             <div class="product-thumbnails" aria-label="Product images">
               <% images.forEach((image, index) => { %>
                 <button

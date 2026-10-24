@@ -17,7 +17,10 @@ import {
   saveCatalogue,
 } from "../controllers/adminCatalogueController.js";
 import { receiveProductImage } from "../middleware/imageUploadMiddleware.js";
-import { uploadMainImage } from "../controllers/adminImageController.js";
+import {
+  uploadMainImage,
+  uploadSecondImage,
+} from "../controllers/adminImageController.js";
 import {
   showAdminOrders,
   showAdminOrder,
@@ -72,6 +75,11 @@ router.post("/catalogue/:kind", saveCatalogue);
 router.post("/catalogue/:kind/:id", saveCatalogue);
 
 router.post("/products/:id/image", receiveProductImage, uploadMainImage);
+router.post(
+  "/products/:id/second-image",
+  receiveProductImage,
+  uploadSecondImage,
+);
 router.get("/orders", showAdminOrders);
 router.get("/orders/:id", showAdminOrder);
 router.get("/customers", showCustomers);

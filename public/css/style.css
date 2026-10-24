@@ -2614,3 +2614,16 @@ body:has(.whatsapp-contact) .site-footer {
     flex-basis: auto;
   }
 }
+/* Keep Bootstrap's display utility from overriding hidden controls. */
+#productGalleryControls[hidden] {
+  display: none !important;
+}
+
+.product-main-image {
+  touch-action: pan-y pinch-zoom;
+}
+
+.product-main-image img {
+  min-width: 0;
+  min-height: 0;
+}

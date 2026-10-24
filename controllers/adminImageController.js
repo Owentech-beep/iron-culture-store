@@ -6,7 +6,15 @@ import {
   removeProductImage,
 } from "../services/productImageStorage.js";
 
-export async function uploadMainImage(req, res) {
+export function uploadMainImage(req, res) {
+  return uploadImageAtPosition(req, res, 0);
+}
+
+export function uploadSecondImage(req, res) {
+  return uploadImageAtPosition(req, res, 1);
+}
+
+async function uploadImageAtPosition(req, res, position) {
   if (!/^[1-9]\d*$/.test(req.params.id) || Number(req.params.id) > 2147483647) {
     return res.status(400).json({ error: "Invalid product." });
   }
@@ -14,7 +22,7 @@ export async function uploadMainImage(req, res) {
   const productId = Number(req.params.id);
 
   const productResult = await pool.query(
-    "SELECT id FROM products WHERE id = $1",
+    "SELECT id FROM products WHERE id = $1 AND retired_at IS NULL",
     [productId],
   );
 
@@ -82,10 +90,10 @@ export async function uploadMainImage(req, res) {
   try {
     await pool.query(
       `INSERT INTO product_images (product_id, image_url, position)
-       VALUES ($1, $2, 0)
+       VALUES ($1, $2, $3)
        ON CONFLICT (product_id, position)
        DO UPDATE SET image_url = EXCLUDED.image_url`,
-      [productId, uploaded.imageUrl],
+      [productId, uploaded.imageUrl, position],
     );
   } catch (error) {
     // Remove the new upload if its database record could not be saved.
@@ -97,7 +105,7 @@ export async function uploadMainImage(req, res) {
   }
 
   return res.status(201).json({
-    message: "Main image uploaded.",
+    message: position === 0 ? "Main image uploaded." : "Second image uploaded.",
     imageUrl: uploaded.imageUrl,
   });
 }
