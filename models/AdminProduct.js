@@ -63,7 +63,12 @@ export async function getAdminProduct(id) {
          SELECT image_url
          FROM product_images
          WHERE product_id = p.id AND position = 0
-       ) AS image_url
+             ) AS image_url,
+       (
+         SELECT image_url
+         FROM product_images
+         WHERE product_id = p.id AND position = 1
+       ) AS second_image_url
      FROM products p
      WHERE p.id = $1`,
     [id],

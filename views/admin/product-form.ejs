@@ -436,6 +436,16 @@
 
   <section class="admin-panel p-4 mt-4">
   <h2 class="h5 mb-3">Second Product Image</h2>
+  <% if (values.second_image_url) { %>
+    <img
+      src="<%= values.second_image_url %>"
+      alt="Current second product image"
+      class="admin-image-preview mb-3"
+      width="240"
+      height="240"
+      style="object-fit: contain;"
+    >
+  <% } %>
 
   <p class="text-muted-custom">
     Add a back view or another product photo.
