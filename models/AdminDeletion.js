@@ -76,14 +76,30 @@ export async function deleteAdminEntry(kind, id, expectedSlug) {
              FROM stock_reservations r
              JOIN product_variants v ON v.id = r.variant_id
              WHERE v.product_id = $1
-           ) AS has_reservations`,
+          ) AS has_reservations,
+
+          EXISTS (
+            SELECT 1
+            FROM stock_cost_batches b
+            JOIN product_variants v ON v.id = b.variant_id
+            WHERE v.product_id = $1
+          ) AS has_cost_batches,
+
+          EXISTS (
+            SELECT 1
+            FROM stock_cost_adjustments a
+            JOIN product_variants v ON v.id = a.variant_id
+            WHERE v.product_id = $1
+            ) AS has_cost_adjustments`,
         [id],
       );
 
       const preserveHistory =
-        references[0].has_orders ||
-        references[0].has_reservations ||
-        inventory.some((item) => Number(item.reserved_quantity) !== 0);
+      references[0].has_orders ||
+      references[0].has_reservations ||
+      references[0].has_cost_batches ||
+      references[0].has_cost_adjustments ||
+      inventory.some((item) => Number(item.reserved_quantity) !== 0);
 
       // Remove these options from customers' current carts.
       // Existing order items remain separate and unchanged.

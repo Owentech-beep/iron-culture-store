@@ -8,8 +8,6 @@ import {
   saveProduct,
   archiveProduct,
   addVariant,
-  showInventory,
-  saveStock,
   saveVariantPrices,
 } from "../controllers/adminProductController.js";
 import {
@@ -50,6 +48,12 @@ import {
   removeSlide,
 } from "../controllers/adminSlideController.js";
 import { receiveHomeSlide } from "../middleware/homeSlideUploadMiddleware.js";
+import {
+  showCostInventory,
+  receivePurchase,
+  saveOpeningCost,
+  correctStock,
+} from "../controllers/adminStockCostController.js";
 
 const router = Router();
 
@@ -73,8 +77,10 @@ router.post("/products/:id/archive", archiveProduct);
 router.post("/products/:id/variants", addVariant);
 router.post("/products/:id/variants/:variantId/prices", saveVariantPrices);
 
-router.get("/inventory", showInventory);
-router.post("/inventory/:id", saveStock);
+router.get("/inventory", showCostInventory);
+router.post("/inventory/:id", correctStock);
+router.post("/inventory/:id/receive", receivePurchase);
+router.post("/inventory/:id/opening-cost", saveOpeningCost);
 router.get("/catalogue/:kind", showCatalogue);
 router.post("/catalogue/:kind", saveCatalogue);
 router.post("/catalogue/:kind/:id", saveCatalogue);

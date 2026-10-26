@@ -14,9 +14,61 @@
     <section class="admin-stat">
       <h2>Paid Sales</h2>
       <strong><%= formatMoney(dashboard.salesCents) %></strong>
-      <p>Demo orders excluded</p>
+      <p>Includes delivery charges · Demo orders excluded</p>
     </section>
   </div>
+
+  <div class="col-sm-6 col-xl-3">
+  <section class="admin-stat">
+    <h2>Cost of Goods Sold</h2>
+
+    <strong>
+      <%= formatMoney(costSummary.known_cogs_cents) %>
+    </strong>
+
+    <% if (costSummary.missing_cost_orders > 0) { %>
+      <p>
+        Incomplete: <%= costSummary.missing_cost_orders %>
+        paid orders need cost records.
+      </p>
+    <% } else { %>
+      <p>Recorded product cost for paid, non-demo orders</p>
+    <% } %>
+  </section>
+</div>
+
+<div class="col-sm-6 col-xl-3">
+  <section class="admin-stat">
+    <h2>Gross Profit</h2>
+
+    <strong>
+      <%= costSummary.gross_profit_cents === null
+        ? "Cost missing"
+        : formatMoney(costSummary.gross_profit_cents) %>
+    </strong>
+
+    <p>
+      Product revenue after discounts minus recorded product costs.
+      Delivery charges and other expenses excluded.
+    </p>
+  </section>
+</div>
+
+<div class="col-sm-6 col-xl-3">
+  <section class="admin-stat">
+    <h2>Stock Purchases</h2>
+
+    <strong>
+      <%= formatMoney(costSummary.purchases_cents) %>
+    </strong>
+
+    <p>Recorded purchases · Opening balances and demo stock excluded</p>
+
+    <a href="/admin/inventory" class="btn btn-outline-brand">
+      Manage Costs
+    </a>
+  </section>
+</div>
 
   <div class="col-sm-6 col-xl-3">
     <section class="admin-stat">

@@ -1,10 +1,12 @@
 import { getDashboardData } from "../models/Admin.js";
 import { getAdminEmailOverview } from "../models/AdminEmail.js";
+import { getStockCostSummary } from "../models/StockCostOverview.js";
 
 export async function showDashboard(req, res) {
-  const [dashboard, emailOverview] = await Promise.all([
+  const [dashboard, emailOverview, costSummary] = await Promise.all([
     getDashboardData(),
     getAdminEmailOverview(),
+    getStockCostSummary(),
   ]);
 
   const formatMoney = (cents) =>
@@ -57,5 +59,6 @@ export async function showDashboard(req, res) {
     formatMoney,
     formatDate,
     formatDateTime,
+    costSummary,
   });
 }

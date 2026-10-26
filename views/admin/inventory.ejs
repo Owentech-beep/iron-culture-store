@@ -3,9 +3,13 @@
 <div class="admin-page-heading">
   <div>
     <p class="eyebrow">STOCK MANAGEMENT</p>
-    <h1 class="section-title mb-0">Inventory</h1>
+    <h1 class="section-title mb-0">Inventory & Purchase Costs</h1>
   </div>
 </div>
+
+<% if (notice) { %>
+  <p class="notice-panel" role="status"><%= notice %></p>
+<% } %>
 
 <form action="/admin/inventory" method="GET" class="admin-search mb-3">
   <label for="inventorySearch" class="visually-hidden">
@@ -26,125 +30,370 @@
 </form>
 
 <p class="text-muted-custom">
-  Showing up to 100 matching options. Search to narrow the list.
-  Enter the total physical stock, not the number being added.
-  Reserved units are held for payment and are excluded from available stock.
+  Showing up to 100 matching options.
+  Use Receive Stock for purchases and Correct Stock for count adjustments.
+  Selling prices are managed in Edit Product.
 </p>
 
 <% items.forEach((item) => { %>
-  <section class="admin-panel p-4 mb-3">
-    <div class="d-flex justify-content-between flex-wrap gap-2 mb-3">
-      <div>
-        <h2 class="h5">
-          <a href="/admin/products/<%= item.product_id %>/edit">
-            <%= item.product_name %>
-          </a>
-        </h2>
+  <section class="admin-panel p-4 mb-4">
+    <h2 class="h5">
+      <a href="/admin/products/<%= item.product_id %>/edit">
+        <%= item.product_name %>
+      </a>
+    </h2>
 
-        <p class="text-muted-custom mb-1">
-          <%= item.size %> · <%= item.flavour %>
-          · <%= item.product_active ? "Published" : "Unpublished" %>
-        </p>
+    <p class="text-muted-custom">
+      <%= item.size %> · <%= item.flavour %>
+      · <%= item.product_active ? "Published" : "Unpublished" %>
+      <% if (item.is_demo) { %> · DEMO <% } %>
+    </p>
 
-        <p class="admin-sku text-muted-custom mb-0"><%= item.sku %></p>
-      </div>
+    <p class="admin-sku"><%= item.sku %></p>
 
-      <% if (item.is_demo) { %>
-        <span class="demo-label align-self-start">Demo</span>
-      <% } %>
-    </div>
-
-    <dl class="row g-3 mb-4">
+    <dl class="row g-3">
       <div class="col-4">
-        <dt class="text-muted-custom small">Physical</dt>
-        <dd class="fs-5 fw-bold mb-0"><%= item.quantity %></dd>
+        <dt>Physical</dt>
+        <dd><%= item.quantity %></dd>
       </div>
-
       <div class="col-4">
-        <dt class="text-muted-custom small">Reserved</dt>
-        <dd class="fs-5 fw-bold mb-0">
-          <%= item.reserved_quantity %>
-        </dd>
+        <dt>Reserved</dt>
+        <dd><%= item.reserved_quantity %></dd>
       </div>
-
       <div class="col-4">
-        <dt class="text-muted-custom small">Available</dt>
-        <dd class="fs-5 fw-bold mb-0">
-          <%= item.available_quantity %>
-        </dd>
+        <dt>Available</dt>
+        <dd><%= item.available_quantity %></dd>
       </div>
     </dl>
 
-    <% if (item.available_quantity <= item.low_stock_threshold) { %>
-      <p class="notice-panel mb-3">
-        <%= item.available_quantity === 0
-          ? "No units are currently available to sell."
-          : "Available stock is at or below the low-stock threshold." %>
+    <p>
+      Recorded cost of remaining stock:
+      <strong><%= formatMoney(item.known_stock_cost_cents) %></strong>
+    </p>
+
+    <% if (Number(item.unknown_cost_units) > 0) { %>
+      <p class="notice-panel">
+        <%= item.unknown_cost_units %> remaining units have no recorded cost.
+        Their cost is excluded from the amount above.
       </p>
     <% } %>
 
-    <form
-      action="/admin/inventory/<%= item.id %>"
-      method="POST"
-      class="admin-form"
-    >
-      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <% if (item.available_quantity <= item.low_stock_threshold) { %>
+      <p class="notice-panel">Available stock is at or below its threshold.</p>
+    <% } %>
 
-      <input
-        type="hidden"
-        name="previousQuantity"
-        value="<%= item.quantity %>"
-      >
+    <%
+      const untrackedOpening =
+        !item.cost_tracking_started_at && Number(item.quantity) > 0;
 
-      <div class="row g-3 align-items-end">
-        <div class="col-sm-4">
-          <label for="stock-<%= item.id %>" class="form-label">
-            Physical stock quantity
-          </label>
+      const untouchedOpening =
+        item.opening_id &&
+        item.opening_unit_cost_cents == null &&
+        Number(item.opening_remaining) > 0 &&
+        Number(item.opening_remaining) === Number(item.opening_quantity);
 
+      const openingQuantity = untrackedOpening
+        ? item.quantity
+        : item.opening_quantity;
+    %>
+
+    <% if (untrackedOpening || untouchedOpening) { %>
+      <details class="mb-4">
+        <summary>Record cost of existing stock</summary>
+
+        <p class="text-muted-custom mt-3">
+          This records the cost of <%= openingQuantity %> existing units.
+          It does not add stock. If these units had different purchase prices,
+          enter their documented average unit cost.
+        </p>
+
+        <form
+          action="/admin/inventory/<%= item.id %>/opening-cost"
+          method="POST"
+        >
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <input
-            id="stock-<%= item.id %>"
-            name="quantity"
-            type="number"
-            min="<%= item.reserved_quantity %>"
-            max="9999999"
-            step="1"
-            class="form-control"
-            value="<%= item.quantity %>"
-            required
+            type="hidden"
+            name="expectedQuantity"
+            value="<%= openingQuantity %>"
           >
-        </div>
 
-        <div class="col-sm-4">
-          <label for="threshold-<%= item.id %>" class="form-label">
-            Low-stock threshold
+          <label for="opening-cost-<%= item.id %>" class="form-label">
+            Purchase cost per existing unit (R)
           </label>
 
           <input
-            id="threshold-<%= item.id %>"
-            name="threshold"
+            id="opening-cost-<%= item.id %>"
+            name="unit_cost"
             type="number"
             min="0"
-            max="9999999"
-            step="1"
-            class="form-control"
-            value="<%= item.low_stock_threshold %>"
+            max="9999999.99"
+            step="0.01"
+            class="form-control mb-3"
             required
           >
-        </div>
 
-        <div class="col-sm-4">
-          <button type="submit" class="btn btn-brand w-100">
-            Save Stock
+          <label for="opening-note-<%= item.id %>" class="form-label">
+            Explain how this cost was established
+          </label>
+
+          <textarea
+            id="opening-note-<%= item.id %>"
+            name="note"
+            minlength="10"
+            maxlength="500"
+            class="form-control mb-3"
+            required
+          ></textarea>
+
+          <button class="btn btn-brand" type="submit">
+            Record Opening Cost
           </button>
+        </form>
+      </details>
+    <% } %>
+
+    <details class="mb-4">
+      <summary>Receive Stock — record a new purchase</summary>
+
+      <form
+        action="/admin/inventory/<%= item.id %>/receive"
+        method="POST"
+        class="mt-3"
+      >
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <input
+          type="hidden"
+          name="submissionKey"
+          value="<%= item.receiptKey %>"
+        >
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label for="receive-qty-<%= item.id %>" class="form-label">
+              Units being added
+            </label>
+            <input
+              id="receive-qty-<%= item.id %>"
+              name="quantity"
+              type="number"
+              min="1"
+              max="9999999"
+              step="1"
+              class="form-control"
+              required
+            >
+          </div>
+
+          <div class="col-md-6">
+            <label for="receive-cost-<%= item.id %>" class="form-label">
+              Purchase cost per unit (R)
+            </label>
+            <input
+              id="receive-cost-<%= item.id %>"
+              name="unit_cost"
+              type="number"
+              min="0"
+              max="9999999.99"
+              step="0.01"
+              class="form-control"
+              required
+            >
+          </div>
+
+          <div class="col-md-6">
+            <label for="receive-date-<%= item.id %>" class="form-label">
+              Date received
+            </label>
+            <input
+              id="receive-date-<%= item.id %>"
+              name="received_on"
+              type="date"
+              value="<%= today %>"
+              class="form-control"
+              required
+            >
+          </div>
+
+          <div class="col-md-6">
+            <label for="receive-supplier-<%= item.id %>" class="form-label">
+              Supplier
+            </label>
+            <input
+              id="receive-supplier-<%= item.id %>"
+              name="supplier"
+              maxlength="180"
+              class="form-control"
+            >
+          </div>
+
+          <div class="col-md-6">
+            <label for="receive-invoice-<%= item.id %>" class="form-label">
+              Invoice reference
+            </label>
+            <input
+              id="receive-invoice-<%= item.id %>"
+              name="invoice_reference"
+              maxlength="120"
+              class="form-control"
+            >
+          </div>
+
+          <div class="col-12">
+            <label for="receive-note-<%= item.id %>" class="form-label">
+              Notes
+            </label>
+            <textarea
+              id="receive-note-<%= item.id %>"
+              name="note"
+              maxlength="500"
+              class="form-control"
+            ></textarea>
+          </div>
+
+          <div class="col-12">
+            <p class="text-muted-custom">
+              Enter the amount paid for one sellable unit, not the full invoice.
+              A zero cost means the units were genuinely free.
+            </p>
+            <button class="btn btn-brand" type="submit">
+              Record Purchase & Add Stock
+            </button>
+          </div>
         </div>
-      </div>
-    </form>
+      </form>
+    </details>
+
+    <details>
+      <summary>Correct Stock / Change Low-stock Threshold</summary>
+
+      <p class="text-muted-custom mt-3">
+        Enter the total physical count. Explain quantity changes.
+        Extra units entered here have an unknown cost; use Receive Stock
+        for supplier purchases.
+      </p>
+
+      <form
+        action="/admin/inventory/<%= item.id %>"
+        method="POST"
+      >
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <input
+          type="hidden"
+          name="previousQuantity"
+          value="<%= item.quantity %>"
+        >
+        <input
+          type="hidden"
+          name="submissionKey"
+          value="<%= item.correctionKey %>"
+        >
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label for="stock-<%= item.id %>" class="form-label">
+              Total physical stock
+            </label>
+            <input
+              id="stock-<%= item.id %>"
+              name="quantity"
+              type="number"
+              min="<%= item.reserved_quantity %>"
+              max="9999999"
+              step="1"
+              value="<%= item.quantity %>"
+              class="form-control"
+              required
+            >
+          </div>
+
+          <div class="col-md-6">
+            <label for="threshold-<%= item.id %>" class="form-label">
+              Low-stock threshold
+            </label>
+            <input
+              id="threshold-<%= item.id %>"
+              name="threshold"
+              type="number"
+              min="0"
+              max="9999999"
+              step="1"
+              value="<%= item.low_stock_threshold %>"
+              class="form-control"
+              required
+            >
+          </div>
+
+          <div class="col-12">
+            <label for="correction-reason-<%= item.id %>" class="form-label">
+              Reason — required when the quantity changes
+            </label>
+            <textarea
+              id="correction-reason-<%= item.id %>"
+              name="reason"
+              maxlength="500"
+              class="form-control"
+            ></textarea>
+          </div>
+
+          <div class="col-12">
+            <button class="btn btn-outline-brand" type="submit">
+              Save Correction
+            </button>
+          </div>
+        </div>
+      </form>
+    </details>
   </section>
 <% }); %>
 
-<% if (items.length === 0) { %>
-  <p class="admin-empty">No stock records match your search.</p>
+<% if (!items.length) { %>
+  <p>No inventory matches your search.</p>
 <% } %>
+
+<section class="admin-panel p-4 mt-4">
+  <h2 class="h5">Latest Stock Purchases</h2>
+  <p class="text-muted-custom">
+    Latest 20 receipts across the catalogue, independent of the search above.
+  </p>
+
+  <div class="table-responsive">
+    <table class="table admin-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Product / Option</th>
+          <th>Units</th>
+          <th>Unit Cost</th>
+          <th>Total Cost</th>
+          <th>Supplier / Invoice</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% purchases.forEach((purchase) => { %>
+          <tr>
+            <td><%= purchase.received_on %></td>
+            <td>
+              <%= purchase.product_name %><br>
+              <%= purchase.size %> · <%= purchase.flavour %>
+              <% if (purchase.is_demo) { %> · DEMO <% } %>
+            </td>
+            <td><%= purchase.quantity_received %></td>
+            <td><%= formatMoney(purchase.unit_cost_cents) %></td>
+            <td><%= formatMoney(purchase.total_cost_cents) %></td>
+            <td>
+              <%= purchase.supplier || "Not supplied" %><br>
+              <%= purchase.invoice_reference || "No invoice reference" %>
+            </td>
+          </tr>
+        <% }); %>
+
+        <% if (!purchases.length) { %>
+          <tr><td colspan="6">No purchase receipts recorded yet.</td></tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+</section>
 
 <%- include("partials/footer") %>

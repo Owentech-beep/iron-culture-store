@@ -150,6 +150,44 @@ try {
          VALUES ($1, $2)`,
         [variantId, quantity],
       );
+      // Option B starts with three units costing R400 each.
+      // It is the option used by the duplicate-confirmation test.
+      if (index === 1) {
+        await client.query(
+          `INSERT INTO stock_cost_batches (
+       variant_id,
+       entry_type,
+       quantity_received,
+       quantity_remaining,
+       unit_cost_cents,
+       received_on,
+       supplier,
+       invoice_reference,
+       note,
+       is_demo,
+       created_by,
+       submission_key
+     )
+     VALUES (
+       $1, 'purchase', $2, $2, 40000,
+       CURRENT_DATE,
+       'Disposable test supplier',
+       'TEST-INVOICE',
+       'Disposable stock-cost test fixture.',
+       TRUE,
+       $3,
+       $4
+     )`,
+          [variantId, quantity, userId, randomUUID()],
+        );
+
+        await client.query(
+          `UPDATE inventory
+     SET cost_tracking_started_at = NOW()
+     WHERE variant_id = $1`,
+          [variantId],
+        );
+      }
     }
 
     async function createOrder(variants) {
@@ -467,6 +505,55 @@ try {
   console.log("PASS: duplicate confirmations deduct stock only once.");
   console.log("PASS: reservation consumed and reserved stock released.");
   console.log("PASS: one payment email and one paid history entry.");
+
+  const { rows: costedItems } = await pool.query(
+    `SELECT
+     quantity,
+     cost_total_cents::TEXT AS cost_total_cents,
+     cost_recorded_at
+   FROM order_items
+   WHERE order_id = $1
+     AND variant_id = $2`,
+    [orderIds[2], variantIds[1]],
+  );
+
+  assert.equal(costedItems.length, 1);
+  assert.equal(costedItems[0].quantity, 1);
+  assert.equal(costedItems[0].cost_total_cents, "40000");
+  assert.ok(costedItems[0].cost_recorded_at);
+
+  const { rows: allocations } = await pool.query(
+    `SELECT
+     a.quantity,
+     a.unit_cost_cents::TEXT AS unit_cost_cents
+   FROM stock_cost_allocations a
+   JOIN order_items oi ON oi.id = a.order_item_id
+   WHERE oi.order_id = $1
+     AND a.variant_id = $2`,
+    [orderIds[2], variantIds[1]],
+  );
+
+  assert.equal(allocations.length, 1);
+  assert.equal(allocations[0].quantity, 1);
+  assert.equal(allocations[0].unit_cost_cents, "40000");
+
+  const { rows: remainingCosts } = await pool.query(
+    `SELECT
+     SUM(quantity_remaining)::INTEGER AS remaining_units,
+     SUM(
+       quantity_remaining::BIGINT * unit_cost_cents
+     )::TEXT AS remaining_cost_cents
+   FROM stock_cost_batches
+   WHERE variant_id = $1`,
+    [variantIds[1]],
+  );
+
+  assert.equal(remainingCosts[0].remaining_units, 2);
+  assert.equal(remainingCosts[0].remaining_cost_cents, "80000");
+
+  console.log("PASS: sold unit records its R400 purchase cost.");
+  console.log("PASS: duplicate confirmations create one cost allocation.");
+  console.log("PASS: remaining two units retain R800 of stock cost.");
 } catch (error) {
   console.error("TEST FAILED:", error.message);
   process.exitCode = 1;
@@ -476,6 +563,26 @@ try {
 
     try {
       await client.query("BEGIN");
+
+      // Remove cost records belonging only to this test's disposable variants.
+      // Allocations reference both batches and order items, so delete them first.
+      await client.query(
+        `DELETE FROM stock_cost_allocations
+   WHERE variant_id = ANY($1::INTEGER[])`,
+        [variantIds],
+      );
+
+      await client.query(
+        `DELETE FROM stock_cost_adjustments
+   WHERE variant_id = ANY($1::INTEGER[])`,
+        [variantIds],
+      );
+
+      await client.query(
+        `DELETE FROM stock_cost_batches
+   WHERE variant_id = ANY($1::INTEGER[])`,
+        [variantIds],
+      );
 
       await client.query(
         `DELETE FROM payment_reconciliation_alerts

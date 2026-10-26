@@ -4,6 +4,7 @@ import { assertNoOpenPaymentReconciliation } from "./PaymentReconciliation.js";
 import { clearPurchasedCartItems } from "./Cart.js";
 import { queueOrderEmail } from "../services/orderEmailService.js";
 import { getPayfastConfig } from "../config/payfast.js";
+import { recordPaidOrderCosts } from "./StockCost.js";
 
 function paymentConflict(message) {
   const error = new Error(message);
@@ -235,7 +236,7 @@ export async function completePayment({
 
     // Find the order first, then follow the established lock order:
     // order -> payment -> reservations -> inventory.
-        const { rows: matches } = await client.query(
+    const { rows: matches } = await client.query(
       `SELECT order_id
        FROM payments
        WHERE idempotency_key = $1
@@ -353,6 +354,8 @@ export async function completePayment({
         "Stock reservations do not match this order. Review is required.",
       );
     }
+
+    await recordPaidOrderCosts(client, order.id);
 
     // An elapsed review deadline does not invalidate a reservation
     // that remains active when a verified payment arrives.
