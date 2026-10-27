@@ -20,6 +20,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 import payfastNotificationRoutes from "./routes/payfastNotificationRoutes.js";
 import newsletterRoutes from "./routes/newsletterRoutes.js";
 import { startEmailWorkerProcess } from "./services/emailWorkerProcess.js";
+import seoRoutes from "./routes/seoRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,6 +47,7 @@ app.get("/healthz", (req, res) => {
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
+app.use(seoRoutes);
 app.use("/payments/payfast", payfastNotificationRoutes);
 
 app.use(express.urlencoded({ extended: false, limit: "20kb" }));
@@ -69,6 +71,36 @@ app.use((req, res, next) => {
   res.locals.currentUser = null;
   res.locals.csrfToken = "";
   res.locals.cartCount = 0;
+  next();
+});
+
+app.use((req, res, next) => {
+  const excludedPaths = [
+    "/admin",
+    "/account",
+    "/cart",
+    "/checkout",
+    "/orders",
+    "/payments",
+    "/login",
+    "/register",
+    "/logout",
+    "/forgot-password",
+    "/reset-password",
+    "/newsletter",
+  ];
+
+  const excludedPage = excludedPaths.some(
+    (path) => req.path === path || req.path.startsWith(`${path}/`),
+  );
+
+  const filteredShopPage =
+    req.path === "/shop" && req.originalUrl.includes("?");
+
+  if (excludedPage || filteredShopPage) {
+    res.set("X-Robots-Tag", "noindex");
+  }
+
   next();
 });
 
@@ -136,10 +168,7 @@ async function startServer() {
           });
         });
 
-        await Promise.all([
-          httpClosed,
-          emailWorker.stop(),
-        ]);
+        await Promise.all([httpClosed, emailWorker.stop()]);
 
         await pool.end();
         clearTimeout(timeout);

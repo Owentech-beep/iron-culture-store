@@ -1,3 +1,30 @@
+<%
+  const seoOrigin = "https://ironculturesubs.co.za";
+
+  const seoPage =
+    typeof activePage === "string" ? activePage : "";
+
+  const seoIsError =
+    typeof statusCode !== "undefined" && Number(statusCode) >= 400;
+
+  let seoCanonical = null;
+
+  if (!seoIsError) {
+    if (
+      typeof product !== "undefined" &&
+      product &&
+      typeof product.slug === "string" &&
+      product.slug
+    ) {
+      seoCanonical =
+        `${seoOrigin}/product/${encodeURIComponent(product.slug)}`;
+    } else if (seoPage === "home") {
+      seoCanonical = `${seoOrigin}/`;
+    } else if (seoPage === "shop") {
+      seoCanonical = `${seoOrigin}/shop`;
+    }
+  }
+%>
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,6 +33,10 @@
 
     <title><%= pageTitle %></title>
     <meta name="description" content="<%= metaDescription %>" />
+
+    <% if (seoCanonical) { %>
+      <link rel="canonical" href="<%= seoCanonical %>" />
+    <% } %>
 
     <meta name="theme-color" content="#0D0D0D" />
 
