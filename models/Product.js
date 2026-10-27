@@ -20,6 +20,7 @@ function mapProduct(row) {
     salePrice:
       row.display_sale_price == null ? null : Number(row.display_sale_price),
     hasMultipleVariants: Number(row.variant_count) > 1,
+    hasDiscountedVariant: row.has_discounted_variant === true,
 
     stock: Number(row.stock),
     imageUrl: row.image_url,
@@ -268,17 +269,13 @@ export async function getFeaturedProducts() {
 export async function getDealProducts() {
   const result = await pool.query(
     `SELECT *
- FROM catalogue_products
- WHERE is_active
-   AND effective_price IS NOT NULL
-   AND display_sale_price IS NOT NULL
-   AND display_sale_price < display_price
-   AND ($1::BOOLEAN OR NOT is_demo)
- ORDER BY
-   (display_price - display_sale_price)
-   / NULLIF(display_price, 0) DESC,
-   id DESC
- LIMIT 4`,
+     FROM catalogue_products
+     WHERE is_active
+       AND effective_price IS NOT NULL
+       AND has_discounted_variant
+       AND ($1::BOOLEAN OR NOT is_demo)
+     ORDER BY created_at DESC, id DESC
+     LIMIT 4`,
     [includeDemo],
   );
 

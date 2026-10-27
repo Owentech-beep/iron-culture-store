@@ -1,28 +1,38 @@
 <%
   const hasDiscount =
-  !product.hasMultipleVariants &&
-  product.salePrice !== null &&
-  product.salePrice !== undefined &&
-  product.price > 0 &&
-  product.salePrice < product.price;
+    !product.hasMultipleVariants &&
+    product.salePrice !== null &&
+    product.salePrice !== undefined &&
+    product.price > 0 &&
+    product.salePrice < product.price;
+
+  const showSaleBadge =
+    product.hasDiscountedVariant === true || hasDiscount;
 
   const discountPercent = hasDiscount
     ? Math.floor(
         ((product.price - product.salePrice) / product.price) * 100
       )
     : 0;
+
+  const saleBadgeText = product.hasMultipleVariants
+    ? "SALE · Selected options"
+    : discountPercent >= 1
+      ? `${discountPercent}% OFF`
+      : "SALE";
 %>
+
 <article class="product-card">
   <a
     href="/product/<%= product.slug %>"
     class="product-image-wrap"
     aria-label="View <%= product.name %>"
   >
-    <% if (hasDiscount) { %>
-    <span class="product-sale-badge">
-      <%= discountPercent >= 1 ? `${discountPercent}% OFF` : "SALE" %>
-    </span>
-  <% } %>
+    <% if (showSaleBadge) { %>
+      <span class="product-sale-badge">
+        <%= saleBadgeText %>
+      </span>
+    <% } %>
     <% if (product.imageUrl) { %>
       <img
         src="<%= product.imageUrl %>"
