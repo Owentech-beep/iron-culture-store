@@ -108,6 +108,89 @@
   </div>
 <% } %>
 
+<% if (recoverableLiveAttempts.length > 0) { %>
+  <section class="admin-panel p-4 mb-4">
+    <h2 class="h5">Review Unfinished Live Payments</h2>
+
+    <p>
+      Check the exact reference in live PayFast before closing an attempt.
+      Close it only if no successful or pending transaction exists.
+      This releases reserved stock locally. It does not cancel or refund
+      a PayFast transaction.
+    </p>
+
+    <% recoverableLiveAttempts.forEach((attempt) => { %>
+      <form
+        action="/admin/orders/<%= order.id %>/payments/<%= attempt.id %>/close-live"
+        method="POST"
+        class="mb-4"
+      >
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+        <p>
+          Attempt <strong><%= attempt.id %></strong>
+          · <%= formatMoney(attempt.amount_cents) %><br>
+          Reference:
+          <strong class="text-break"><%= attempt.idempotency_key %></strong>
+        </p>
+
+        <label
+          for="live-reference-<%= attempt.id %>"
+          class="form-label"
+        >
+          Enter the exact reference you checked in PayFast
+        </label>
+
+        <input
+          id="live-reference-<%= attempt.id %>"
+          name="reference"
+          class="form-control mb-3"
+          maxlength="36"
+          autocomplete="off"
+          required
+        >
+
+        <label for="live-note-<%= attempt.id %>" class="form-label">
+          Review findings
+        </label>
+
+        <textarea
+          id="live-note-<%= attempt.id %>"
+          name="note"
+          class="form-control mb-3"
+          minlength="10"
+          maxlength="300"
+          rows="3"
+          required
+        ></textarea>
+
+        <div class="form-check mb-3">
+          <input
+            id="live-confirm-<%= attempt.id %>"
+            name="confirmChecked"
+            value="yes"
+            type="checkbox"
+            class="form-check-input"
+            required
+          >
+
+          <label
+            for="live-confirm-<%= attempt.id %>"
+            class="form-check-label"
+          >
+            I checked this exact reference in live PayFast and confirmed
+            that no successful or pending transaction exists.
+          </label>
+        </div>
+
+        <button type="submit" class="btn btn-outline-brand">
+          Close Unpaid Attempt and Release Reservation
+        </button>
+      </form>
+    <% }); %>
+  </section>
+<% } %>
+
 <% if (recoverableAttempts.length > 0) { %>
   <section class="admin-panel p-4 mb-4">
     <h2 class="h5">Abandoned Sandbox Payments</h2>

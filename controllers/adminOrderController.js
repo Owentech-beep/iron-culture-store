@@ -14,6 +14,10 @@ import {
   listPaymentReconciliationAlerts,
   resolveSuccessfulPaymentAlert,
 } from "../models/PaymentReconciliation.js";
+import {
+  listRecoverableLiveAttempts,
+  closeVerifiedUnpaidLiveAttempt,
+} from "../models/LivePaymentRecovery.js";
 
 function formatMoney(cents) {
   return new Intl.NumberFormat("en-ZA", {
@@ -69,6 +73,10 @@ export async function showAdminOrder(req, res) {
     ? await listRecoverableSandboxAttempts(order.id)
     : [];
   const reconciliationAlerts = await listPaymentReconciliationAlerts(order.id);
+  const recoverableLiveAttempts =
+  reconciliationAlerts.length === 0
+    ? await listRecoverableLiveAttempts(order.id)
+    : [];
 
   const allowedStatuses =
     reconciliationAlerts.length > 0 ? [] : availableOrderStatuses(order);
@@ -84,6 +92,7 @@ export async function showAdminOrder(req, res) {
     allowedStatuses,
     recoverableAttempts,
     reconciliationAlerts,
+    recoverableLiveAttempts,
   });
 }
 
@@ -309,6 +318,48 @@ export async function submitReconciliationResolution(req, res) {
   } catch (error) {
     if (error.status === 409) {
       return reject(error.publicMessage, 409);
+    }
+
+    throw error;
+  }
+
+  return res.redirect(303, `/admin/orders/${req.params.id}`);
+}
+
+export async function submitLiveRecovery(req, res) {
+  const validId = (value) =>
+    typeof value === "string" &&
+    /^[1-9]\d*$/.test(value) &&
+    Number(value) <= 2147483647;
+
+  function reject(message, status = 400) {
+    return res.status(status).render("error", {
+      pageTitle: "Payment Recovery | Iron Culture",
+      metaDescription: "Payment recovery needs attention.",
+      activePage: "",
+      statusCode: status,
+      message,
+    });
+  }
+
+  if (!validId(req.params.id) || !validId(req.params.paymentId)) {
+    return reject("Invalid order or payment.");
+  }
+
+  const text = (value) => typeof value === "string" ? value.trim() : "";
+
+  try {
+    await closeVerifiedUnpaidLiveAttempt({
+      orderId: Number(req.params.id),
+      paymentId: Number(req.params.paymentId),
+      adminId: req.user.id,
+      reference: text(req.body.reference),
+      confirmChecked: req.body.confirmChecked === "yes",
+      note: text(req.body.note),
+    });
+  } catch (error) {
+    if (error.publicMessage) {
+      return reject(error.publicMessage, error.status || 409);
     }
 
     throw error;

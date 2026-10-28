@@ -110,6 +110,10 @@ router.post(
   submitSandboxRecovery,
 );
 router.post(
+  "/orders/:id/payments/:paymentId/close-live",
+  submitLiveRecovery,
+);
+router.post(
   "/orders/:id/reconciliation/:alertId/resolve",
   submitReconciliationResolution,
 );
