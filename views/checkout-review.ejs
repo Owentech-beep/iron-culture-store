@@ -60,30 +60,20 @@
         <section class="cart-summary">
           <h2>Order Summary</h2>
 
-          <dl class="cart-summary-lines">
-            <div>
-              <dt>Subtotal</dt>
-              <dd><%= formatMoney(cart.subtotalCents) %></dd>
-            </div>
+          <p class="text-muted-custom">
+            Delivery is R99 for orders below R750 after discounts.
+            Orders of R750 or more after discounts qualify for free delivery.
+          </p>
 
-            <div>
-              <dt>Delivery</dt>
-              <dd>
-                <%= shipping.status === "free"
-                  ? "Free"
-                  : "Quote required" %>
-              </dd>
-            </div>
+          <p class="text-muted-custom">
+            Continue to PayFast to complete your payment.
+            Stock availability will be checked and available items reserved
+            when the payment attempt starts.
+          </p>
 
-            <div>
-              <dt>Total</dt>
-              <dd>
-                <%= shipping.totalCents === null
-                  ? "Awaiting delivery quote"
-                  : formatMoney(shipping.totalCents) %>
-              </dd>
-            </div>
-          </dl>
+          <p class="text-muted-custom">
+            Your order is paid only after payment confirmation is received.
+          </p>
 
           <p class="text-muted-custom">
             <% if (shipping.status === "quote_required") { %>
@@ -115,9 +105,7 @@
             >
 
             <button class="btn btn-brand w-100" type="submit">
-             <%= shipping.status === "quote_required"
-              ? "Request Delivery Quote"
-              : "Submit Order" %>
+              Continue to PayFast
             </button>
           </form>
         </section>

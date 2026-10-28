@@ -45,7 +45,7 @@ export async function getPaymentPageData(orderId, userId) {
   }
 
   if (
-    !["free", "quoted"].includes(order.shipping_rate_status) ||
+    !["free", "flat_rate", "quoted"].includes(order.shipping_rate_status) ||
     order.delivery_cents === null ||
     order.total_cents === null
   ) {

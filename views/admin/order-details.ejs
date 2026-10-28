@@ -368,7 +368,13 @@
               </button>
             </form>
 
-          <% } else if (order.shipping_rate_status === "free") { %>
+          <% } else if (order.shipping_rate_status === "flat_rate") { %>
+          <div class="notice-panel">
+            Fixed delivery charge:
+            <strong><%= formatMoney(order.delivery_cents) %></strong>.
+            No delivery quote or customer quote acceptance is required.
+          </div>
+         <% } else if (order.shipping_rate_status === "free") { %>
 
             <div class="notice-panel">
 

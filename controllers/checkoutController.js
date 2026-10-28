@@ -12,6 +12,7 @@ import {
   createPendingOrder,
   checkoutError,
 } from "../services/checkoutService.js";
+import { startPayment } from "../services/payments/paymentService.js";
 
 const addressFields = [
   ["firstName", "First name", 100],
@@ -130,6 +131,7 @@ export async function reviewCheckout(req, res) {
       token: randomUUID(),
       address,
       fingerprint: cartFingerprint(cart),
+      shippingPolicyVersion: "flat-rate-99-v1",
       createdAt: Date.now(),
     };
 
@@ -159,23 +161,57 @@ export async function reviewCheckout(req, res) {
 }
 
 export async function submitCheckout(req, res) {
+  let orderId = null;
+
+  res.set("Cache-Control", "no-store");
+
   try {
     const draft = req.session.checkoutDraft;
 
     if (
       !draft ||
       req.body.checkoutToken !== draft.token ||
+      draft.shippingPolicyVersion !== "flat-rate-99-v1" ||
       Date.now() - draft.createdAt > 30 * 60 * 1000
     ) {
       throw checkoutError(
-        "Your checkout review expired or changed. Open /checkout and review your order again."
+        "Your checkout review expired or changed. Open /checkout and review your order again.",
       );
     }
 
-    const orderId = await createPendingOrder(req.user.id, draft);
+    // Repeated submissions return the same order.
+    orderId = await createPendingOrder(req.user.id, draft);
 
-    return res.redirect(303, `/orders/${orderId}`);
+    // Existing payment code checks eligibility and reserves stock
+    // under database locks before creating the payment attempt.
+    const checkout = await startPayment(orderId, req.user.id);
+
+    const isSandbox = checkout.mode === "sandbox";
+
+    return res.render("payfast-checkout", {
+      pageTitle: isSandbox
+        ? "Sandbox Checkout | Iron Culture"
+        : "Secure Checkout | Iron Culture",
+      metaDescription: "Continue to PayFast to complete your payment.",
+      activePage: "account",
+      orderId,
+      checkout,
+      isSandbox,
+    });
   } catch (error) {
+    if (orderId !== null) {
+      // The order already exists. Do not invite the customer to
+      // create another one or start another unresolved payment.
+      console.error("Checkout payment handoff stopped:", {
+        orderId,
+        name: error.name,
+        code: error.code,
+        status: error.status,
+      });
+
+      return res.redirect(303, `/orders/${orderId}/payment`);
+    }
+
     return handleCheckoutError(res, error);
   }
 }

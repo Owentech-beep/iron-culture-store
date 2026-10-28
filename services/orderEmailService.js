@@ -68,7 +68,7 @@ export async function queueOrderEmail(client, orderId, eventType) {
         : `Order total: ${formatMoney(order.total_cents)}`,
       "",
       "Your order has been received. This is not a payment receipt.",
-      "Submitting this order does not reserve stock.",
+      "Stock is reserved when a payment attempt starts. Check your order's payment status for the latest information.",
       "Sign in to your account and open My Orders to view its latest status.",
     ];
   } else if (eventType === "delivery_quote_ready") {

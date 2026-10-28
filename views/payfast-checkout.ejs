@@ -34,21 +34,20 @@
         </div>
       </dl>
 
-      <form action="<%= checkout.action %>" method="POST">
-        <% Object.entries(checkout.fields).forEach(([name, value]) => { %>
-          <input
-            type="hidden"
-            name="<%= name %>"
-            value="<%= value %>"
-          >
-        <% }); %>
+      <p id="payfastRedirectStatus" role="status" aria-live="polite">
+        Taking you to PayFast. If you are not redirected, use the button below.
+      </p>
 
-        <button type="submit" class="btn btn-brand w-100">
-          <%= isSandbox
-            ? "Continue to PayFast Sandbox"
-            : "Continue to PayFast" %>
-        </button>
-      </form>
+      <noscript>
+        <p>JavaScript is disabled. Use Continue to PayFast below.</p>
+      </noscript>
+
+      <form
+        id="payfastCheckoutForm"
+        action="<%= checkout.action %>"
+        method="POST"
+        data-status-url="/orders/<%= orderId %>/payment"
+      >
 
       <a
         href="/orders/<%= orderId %>/payment"
@@ -66,4 +65,5 @@
 </main>
 
 <%- include("partials/footer") %>
+<script src="/js/payfast-checkout.js?v=1" defer></script>
 <%- include("partials/scripts") %>

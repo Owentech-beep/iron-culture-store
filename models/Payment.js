@@ -59,7 +59,7 @@ export async function createPaymentAttempt(orderId, userId) {
     }
 
     if (
-      !["free", "quoted"].includes(order.shipping_rate_status) ||
+      !["free", "flat_rate", "quoted"].includes(order.shipping_rate_status) ||
       order.delivery_cents === null ||
       order.total_cents === null ||
       (order.shipping_rate_status === "quoted" && !order.quote_accepted_at)
@@ -314,7 +314,7 @@ export async function completePayment({
       order.payment_status !== "unpaid" ||
       order.stock_deducted_at ||
       Number(order.total_cents) !== amountCents ||
-      !["free", "quoted"].includes(order.shipping_rate_status) ||
+      !["free", "flat_rate", "quoted"].includes(order.shipping_rate_status) ||
       (order.shipping_rate_status === "quoted" && !order.quote_accepted_at)
     ) {
       throw paymentConflict(

@@ -11,23 +11,40 @@ export const provinces = [
 ];
 
 const freeDeliveryThresholdCents = 75000;
+const flatDeliveryCents = 9900;
+const maximumAmountCents = 2147483647;
 
 export function calculateShipping(subtotalCents, discountCents = 0) {
-  const eligibleSubtotal = subtotalCents - discountCents;
-
-  if (eligibleSubtotal > freeDeliveryThresholdCents) {
-    return {
-      status: "free",
-      deliveryCents: 0,
-      totalCents: eligibleSubtotal,
-    };
+  if (
+    !Number.isSafeInteger(subtotalCents) ||
+    !Number.isSafeInteger(discountCents) ||
+    subtotalCents < 0 ||
+    discountCents < 0 ||
+    discountCents > subtotalCents
+  ) {
+    throw new Error("Invalid shipping calculation amounts.");
   }
 
-  // A real courier integration will supply the delivery amount.
-  // Never substitute a guessed price or zero on failure.
+  const eligibleSubtotal = subtotalCents - discountCents;
+  const qualifiesForFreeDelivery =
+    eligibleSubtotal >= freeDeliveryThresholdCents;
+
+  const deliveryCents = qualifiesForFreeDelivery
+    ? 0
+    : flatDeliveryCents;
+
+  const totalCents = eligibleSubtotal + deliveryCents;
+
+  if (
+    !Number.isSafeInteger(totalCents) ||
+    totalCents > maximumAmountCents
+  ) {
+    throw new Error("Order total exceeds the supported amount.");
+  }
+
   return {
-    status: "quote_required",
-    deliveryCents: null,
-    totalCents: null,
+    status: qualifiesForFreeDelivery ? "free" : "flat_rate",
+    deliveryCents,
+    totalCents,
   };
 }
