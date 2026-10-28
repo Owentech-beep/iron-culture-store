@@ -45,9 +45,9 @@ export async function getHome(req, res) {
     }).format(amount);
 
   res.render("home", {
-    pageTitle: "Iron Culture Supplements | Fuel Your Next Level",
-    metaDescription:
-      "Explore supplements and training essentials from Iron Culture Supplements.",
+   pageTitle: "Iron Culture Supplements | Online Store & Ficksburg",
+   metaDescription:
+   "Shop protein, creatine and pre-workout supplements at Iron Culture. Order online with nationwide delivery or visit our store in Ficksburg.",
     activePage: "home",
     categories,
     brands,
