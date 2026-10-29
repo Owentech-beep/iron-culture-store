@@ -5,6 +5,7 @@ import { clearPurchasedCartItems } from "./Cart.js";
 import { queueOrderEmail } from "../services/orderEmailService.js";
 import { getPayfastConfig } from "../config/payfast.js";
 import { recordPaidOrderCosts } from "./StockCost.js";
+import { getOzowConfig } from "../config/ozow.js";
 
 function paymentConflict(message) {
   const error = new Error(message);
@@ -13,11 +14,32 @@ function paymentConflict(message) {
   return error;
 }
 
-export async function createPaymentAttempt(orderId, userId) {
-  const config = getPayfastConfig();
+export async function createPaymentAttempt(
+  orderId,
+  userId,
+  providerName = "payfast",
+) {
+  let config;
 
-  if (!config.checkoutEnabled) {
-    throw paymentConflict("Online payments are temporarily unavailable.");
+  if (providerName === "payfast") {
+    config = getPayfastConfig();
+
+    if (!config.checkoutEnabled) {
+      throw paymentConflict("PayFast payments are temporarily unavailable.");
+    }
+  } else if (providerName === "ozow") {
+    const ozow = getOzowConfig();
+
+    if (!ozow) {
+      throw paymentConflict("Ozow payments are temporarily unavailable.");
+    }
+
+    config = {
+      mode: ozow.mode,
+      provider: ozow.provider,
+    };
+  } else {
+    throw paymentConflict("Unsupported payment provider.");
   }
 
   const client = await pool.connect();
@@ -42,8 +64,8 @@ export async function createPaymentAttempt(orderId, userId) {
 
     await assertNoOpenPaymentReconciliation(client, orderId);
 
-    if (config.mode === "sandbox" && !order.is_demo) {
-      throw paymentConflict("Sandbox payments require a demo order.");
+    if (["sandbox", "staging"].includes(config.mode) && !order.is_demo) {
+      throw paymentConflict("Test payments require a demo order.");
     }
 
     if (config.mode === "live" && order.is_demo) {
@@ -216,17 +238,49 @@ export async function completePayment({
   providerPaymentId,
   amountCents,
   provider,
+  paymentStatus,
 }) {
-  if (!["payfast_sandbox", "payfast_live"].includes(provider)) {
+  const supportedProviders = [
+    "payfast_sandbox",
+    "payfast_live",
+    "ozow_staging",
+    "ozow_live",
+  ];
+
+  if (!supportedProviders.includes(provider)) {
     throw paymentConflict("Invalid payment provider.");
   }
+
+  const isOzow = provider.startsWith("ozow_");
+  const isTest = ["payfast_sandbox", "ozow_staging"].includes(provider);
+
+  const uuidPattern =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
   if (
+    typeof paymentReference !== "string" ||
+    !uuidPattern.test(paymentReference) ||
     !Number.isSafeInteger(amountCents) ||
     amountCents <= 0 ||
     typeof providerPaymentId !== "string" ||
-    !/^\d{1,255}$/.test(providerPaymentId)
+    !(isOzow
+      ? uuidPattern.test(providerPaymentId)
+      : /^\d{1,255}$/.test(providerPaymentId))
   ) {
     throw paymentConflict("Invalid payment confirmation.");
+  }
+
+  // Ozow callers must explicitly supply the verified success status.
+  // Existing PayFast callers already check COMPLETE in their controller.
+  if (
+    (isOzow && paymentStatus !== "COMPLETE") ||
+    (paymentStatus !== undefined && paymentStatus !== "COMPLETE")
+  ) {
+    throw paymentConflict("Only completed payments can confirm an order.");
+  }
+
+  if (isOzow) {
+    providerPaymentId = providerPaymentId.toLowerCase();
   }
 
   const client = await pool.connect();
@@ -272,7 +326,8 @@ export async function completePayment({
     if (
       !order ||
       !payment ||
-      order.is_demo !== (provider === "payfast_sandbox") ||
+      order.is_demo !== isTest ||
+      (isOzow && !payment.provider_request_started_at) ||
       payment.currency !== "ZAR" ||
       Number(payment.amount_cents) !== amountCents
     ) {
@@ -418,9 +473,10 @@ export async function completePayment({
       [
         order.id,
         order.status,
-        provider === "payfast_live"
-          ? "PayFast payment verified. Reserved stock consumed."
-          : "PayFast sandbox payment verified. Test stock reservation consumed; no real money collected.",
+        `${isOzow ? "Ozow" : "PayFast"} ${isTest ? "test" : "live"} payment verified. ` +
+          (isTest
+            ? "Test stock reservation consumed; no real money collected."
+            : "Reserved stock consumed."),
       ],
     );
     await clearPurchasedCartItems(client, order.id, order.user_id);

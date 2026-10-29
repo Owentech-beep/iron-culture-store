@@ -1,10 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { getCart } from "../models/Cart.js";
-import {
-  provinces,
-  calculateShipping,
-} from "../services/shippingService.js";
+import { provinces, calculateShipping } from "../services/shippingService.js";
 
 import {
   validateCart,
@@ -12,7 +9,10 @@ import {
   createPendingOrder,
   checkoutError,
 } from "../services/checkoutService.js";
-import { startPayment } from "../services/payments/paymentService.js";
+import {
+  startPayment,
+  getAvailablePaymentMethods,
+} from "../services/payments/paymentService.js";
 
 const addressFields = [
   ["firstName", "First name", 100],
@@ -38,13 +38,14 @@ function readAddress(body) {
   const errors = [];
 
   for (const [key, label, maxLength] of addressFields) {
-    const value =
-      typeof body[key] === "string" ? body[key].trim() : "";
+    const value = typeof body[key] === "string" ? body[key].trim() : "";
 
     address[key] = value.slice(0, maxLength);
 
     if (!value || value.length > maxLength) {
-      errors.push(`${label} is required and must be within ${maxLength} characters.`);
+      errors.push(
+        `${label} is required and must be within ${maxLength} characters.`,
+      );
     }
   }
 
@@ -150,6 +151,9 @@ export async function reviewCheckout(req, res) {
       pageTitle: "Review Order | Iron Culture",
       metaDescription: "Review your delivery details and order.",
       activePage: "cart",
+      paymentMethods: getAvailablePaymentMethods(
+        cart.items.some((item) => item.isDemo),
+      ),
       cart,
       draft,
       shipping,
@@ -179,12 +183,27 @@ export async function submitCheckout(req, res) {
       );
     }
 
+    const providerName = req.body.paymentProvider;
+
+    if (
+      typeof providerName !== "string" ||
+      !["payfast", "ozow"].includes(providerName)
+    ) {
+      throw checkoutError(
+        "Choose a payment method and review your order again.",
+      );
+    }
+
     // Repeated submissions return the same order.
     orderId = await createPendingOrder(req.user.id, draft);
 
     // Existing payment code checks eligibility and reserves stock
     // under database locks before creating the payment attempt.
-    const checkout = await startPayment(orderId, req.user.id);
+    const checkout = await startPayment(orderId, req.user.id, providerName);
+
+    if (checkout.providerName === "ozow") {
+      return res.redirect(303, checkout.checkoutUrl);
+    }
 
     const isSandbox = checkout.mode === "sandbox";
 

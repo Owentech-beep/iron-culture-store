@@ -5,6 +5,7 @@ import {
   showPayment,
   submitPayment,
   submitSandboxPayment,
+  submitOzowPayment,
 } from "../controllers/paymentController.js";
 
 const router = Router();
@@ -18,6 +19,7 @@ router.use((req, res, next) => {
 
 router.get("/:id/payment", showPayment);
 router.post("/:id/payment/payfast", submitPayment);
+router.post("/:id/payment/ozow", submitOzowPayment);
 
 // Existing sandbox forms remain restricted to sandbox mode.
 router.post("/:id/payment/sandbox", submitSandboxPayment);

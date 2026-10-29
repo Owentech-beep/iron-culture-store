@@ -8,8 +8,41 @@ export async function recordPaymentReconciliation({
   paymentStatus = "COMPLETE",
   provider,
 }) {
-  if (!["payfast_sandbox", "payfast_live"].includes(provider)) {
+  if (
+    !["payfast_sandbox", "payfast_live", "ozow_staging", "ozow_live"].includes(
+      provider,
+    )
+  ) {
     throw new Error("Unexpected payment provider.");
+  }
+
+  const uuidPattern =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  const isOzow = provider.startsWith("ozow_");
+
+  if (
+    typeof paymentReference !== "string" ||
+    !uuidPattern.test(paymentReference) ||
+    typeof providerPaymentId !== "string" ||
+    !(isOzow
+      ? uuidPattern.test(providerPaymentId)
+      : /^\d{1,255}$/.test(providerPaymentId)) ||
+    !Number.isSafeInteger(amountCents) ||
+    amountCents <= 0
+  ) {
+    throw new Error("Invalid reconciliation payment details.");
+  }
+
+  if (
+    isOzow &&
+    !["COMPLETE", "INCOMPLETE", "PENDING", "ERROR"].includes(paymentStatus)
+  ) {
+    throw new Error("Unexpected Ozow payment status.");
+  }
+
+  if (isOzow) {
+    providerPaymentId = providerPaymentId.toLowerCase();
   }
 
   if (
@@ -19,8 +52,12 @@ export async function recordPaymentReconciliation({
     throw new Error("Unexpected provider payment status.");
   }
 
-  const providerLabel =
-    provider === "payfast_live" ? "PayFast" : "PayFast sandbox";
+  const providerLabel = {
+    payfast_live: "PayFast",
+    payfast_sandbox: "PayFast sandbox",
+    ozow_live: "Ozow",
+    ozow_staging: "Ozow staging",
+  }[provider];
 
   const reason =
     paymentStatus === "COMPLETE"
@@ -182,12 +219,21 @@ export async function resolveSuccessfulPaymentAlert({
 
     if (
       !payment ||
-      !["payfast_sandbox", "payfast_live"].includes(payment.provider)
+      ![
+        "payfast_sandbox",
+        "payfast_live",
+        "ozow_staging",
+        "ozow_live",
+      ].includes(payment.provider)
     ) {
       throw reject("Supported payment alert not found.");
     }
 
-    if (order.is_demo !== (payment.provider === "payfast_sandbox")) {
+    const isTest = ["payfast_sandbox", "ozow_staging"].includes(
+      payment.provider,
+    );
+
+    if (order.is_demo !== isTest) {
       throw reject("The payment environment does not match this order.");
     }
 

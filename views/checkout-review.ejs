@@ -60,54 +60,92 @@
         <section class="cart-summary">
           <h2>Order Summary</h2>
 
+          <dl class="cart-summary-lines">
+            <div>
+              <dt>Items</dt>
+              <dd><%= formatMoney(cart.subtotalCents) %></dd>
+            </div>
+
+            <div>
+              <dt>Delivery</dt>
+              <dd>
+                <%= shipping.deliveryCents === null
+                  ? "Not available"
+                  : shipping.deliveryCents === 0
+                    ? "Free"
+                    : formatMoney(shipping.deliveryCents) %>
+              </dd>
+            </div>
+
+            <div>
+              <dt>Total</dt>
+              <dd>
+                <%= shipping.totalCents === null
+                  ? "Not available"
+                  : formatMoney(shipping.totalCents) %>
+              </dd>
+            </div>
+          </dl>
+
           <p class="text-muted-custom">
-            Delivery is R99 for orders below R750 after discounts.
+            Delivery is R99 below R750 after discounts.
             Orders of R750 or more after discounts qualify for free delivery.
           </p>
 
           <p class="text-muted-custom">
-            Continue to PayFast to complete your payment.
-            Stock availability will be checked and available items reserved
-            when the payment attempt starts.
+            Stock is checked and reserved when your payment attempt starts.
+            Your order is marked paid after payment confirmation is received.
           </p>
 
-          <p class="text-muted-custom">
-            Your order is paid only after payment confirmation is received.
-          </p>
+          <% if (paymentMethods.length && shipping.totalCents !== null) { %>
+            <form action="/checkout/orders" method="POST">
+              <input
+                type="hidden"
+                name="_csrf"
+                value="<%= csrfToken %>"
+              >
 
-          <p class="text-muted-custom">
-            <% if (shipping.status === "quote_required") { %>
-              Submit your order to request a delivery quote.
-              You can review and accept the delivery charge from My Orders.
-            <% } else { %>
-              Submit your order to save it in My Orders.
-            <% } %>
-          </p>
+              <input
+                type="hidden"
+                name="checkoutToken"
+                value="<%= draft.token %>"
+              >
 
-          <p class="text-muted-custom">
-            Submitting your order does not take payment.
-            Your order page will show payment availability once
-            the delivery charge is finalised.
-          </p>
+              <fieldset class="mb-3">
+                <legend class="h6">Payment method</legend>
 
-          <p class="text-muted-custom">
-            Items are not reserved when you submit an order.
-            Stock availability will be checked again when you start payment.
-          </p>
+                <% paymentMethods.forEach((method, index) => { %>
+                  <div class="form-check mb-2">
+                    <input
+                      class="form-check-input"
+                      type="radio"
+                      name="paymentProvider"
+                      id="paymentProvider-<%= method.id %>"
+                      value="<%= method.id %>"
+                      required
+                      <% if (index === 0) { %>checked<% } %>
+                    >
 
-          <form action="/checkout/orders" method="POST">
-            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <label
+                      class="form-check-label"
+                      for="paymentProvider-<%= method.id %>"
+                    >
+                      <%= method.label %>
+                    </label>
+                  </div>
+                <% }); %>
+              </fieldset>
 
-            <input
-              type="hidden"
-              name="checkoutToken"
-              value="<%= draft.token %>"
-            >
-
-            <button class="btn btn-brand w-100" type="submit">
-              Continue to PayFast
-            </button>
-          </form>
+              <button class="btn btn-brand w-100" type="submit">
+                Continue to Payment
+              </button>
+            </form>
+          <% } else { %>
+            <p class="notice-panel" role="status">
+              Online payment is temporarily unavailable.
+              Please contact the store for assistance.
+            </p>
+          <% } %>
         </section>
       </div>
     </div>

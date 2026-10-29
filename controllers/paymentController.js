@@ -9,9 +9,7 @@ function readOrderId(value) {
 
   const id = Number(value);
 
-  return Number.isSafeInteger(id) && id <= 2147483647
-    ? id
-    : null;
+  return Number.isSafeInteger(id) && id <= 2147483647 ? id : null;
 }
 
 function orderNotFound(res) {
@@ -27,9 +25,7 @@ function orderNotFound(res) {
 export async function showPayment(req, res) {
   const orderId = readOrderId(req.params.id);
 
-  const data = orderId
-    ? await getPaymentPageData(orderId, req.user.id)
-    : null;
+  const data = orderId ? await getPaymentPageData(orderId, req.user.id) : null;
 
   if (!data) return orderNotFound(res);
 
@@ -69,6 +65,10 @@ async function renderCheckout(req, res, start) {
     throw error;
   }
 
+  if (checkout.providerName === "ozow") {
+    return res.redirect(303, checkout.checkoutUrl);
+  }
+
   const isSandbox = checkout.mode === "sandbox";
 
   return res.render("payfast-checkout", {
@@ -91,4 +91,12 @@ export async function submitPayment(req, res) {
 
 export async function submitSandboxPayment(req, res) {
   return renderCheckout(req, res, startSandboxPayment);
+}
+
+export async function submitOzowPayment(req, res) {
+  return renderCheckout(
+    req,
+    res,
+    (orderId, userId) => startPayment(orderId, userId, "ozow"),
+  );
 }
