@@ -42,12 +42,26 @@
         <p>JavaScript is disabled. Use Continue to PayFast below.</p>
       </noscript>
 
-      <form
+            <form
         id="payfastCheckoutForm"
         action="<%= checkout.action %>"
         method="POST"
         data-status-url="/orders/<%= orderId %>/payment"
       >
+        <% Object.entries(checkout.fields).forEach(([name, value]) => { %>
+          <input
+            type="hidden"
+            name="<%= name %>"
+            value="<%= value %>"
+          >
+        <% }); %>
+
+        <button type="submit" class="btn btn-brand w-100">
+          <%= isSandbox
+            ? "Continue to PayFast Sandbox"
+            : "Continue to PayFast" %>
+        </button>
+      </form>
 
       <a
         href="/orders/<%= orderId %>/payment"
