@@ -46,15 +46,13 @@ export function createOzowTokenProvider(
           grant_type: "client_credentials",
         }),
       });
-    } catch {
-      throw new Error("Ozow authentication could not be reached.");
+    } catch (cause) {
+      throw new Error("Ozow authentication could not be reached.", { cause });
     }
 
     if (!response.ok) {
       // Do not include credentials or provider response bodies.
-      throw new Error(
-        `Ozow authentication returned HTTP ${response.status}.`,
-      );
+      throw new Error(`Ozow authentication returned HTTP ${response.status}.`);
     }
 
     let data;
@@ -80,10 +78,8 @@ export function createOzowTokenProvider(
 
     if (
       data.scope !== undefined &&
-      (
-        typeof data.scope !== "string" ||
-        !data.scope.split(/\s+/).includes("payments")
-      )
+      (typeof data.scope !== "string" ||
+        !data.scope.split(/\s+/).includes("payments"))
     ) {
       throw new Error("Ozow did not grant the payments scope.");
     }
@@ -93,7 +89,9 @@ export function createOzowTokenProvider(
     const expiresAt = startedAt + lifetimeMs - marginMs;
 
     if (!Number.isFinite(expiresAt) || expiresAt <= now()) {
-      throw new Error("Ozow returned a token with insufficient remaining life.");
+      throw new Error(
+        "Ozow returned a token with insufficient remaining life.",
+      );
     }
 
     cachedToken = data.access_token;

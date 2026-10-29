@@ -1,7 +1,6 @@
 import { createOzowTokenProvider } from "./ozowToken.js";
 
-const UUID =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function uncertainOutcome(message) {
   const error = new Error(message);
@@ -14,11 +13,7 @@ function uncertainOutcome(message) {
 
 export function createOzowPaymentClient(
   config,
-  {
-    fetchImpl = globalThis.fetch,
-    now = Date.now,
-    getAccessToken,
-  } = {},
+  { fetchImpl = globalThis.fetch, now = Date.now, getAccessToken } = {},
 ) {
   if (!config?.enabled) {
     throw new Error("Ozow checkout is disabled.");
@@ -72,24 +67,14 @@ export function createOzowPaymentClient(
   const publicOrigin = baseUrl.origin;
 
   const tokenProvider =
-    getAccessToken ??
-    createOzowTokenProvider(config, { fetchImpl, now });
+    getAccessToken ?? createOzowTokenProvider(config, { fetchImpl, now });
 
   return {
     async createPaymentRequest(attempt) {
-      const {
-        orderId,
-        paymentReference,
-        amountCents,
-        provider,
-        expiresAt,
-      } = attempt;
+      const { orderId, paymentReference, amountCents, provider, expiresAt } =
+        attempt;
 
-      if (
-        !Number.isInteger(orderId) ||
-        orderId < 1 ||
-        orderId > 2147483647
-      ) {
+      if (!Number.isInteger(orderId) || orderId < 1 || orderId > 2147483647) {
         throw new Error("Invalid checkout order ID.");
       }
 
@@ -104,10 +89,7 @@ export function createOzowPaymentClient(
         throw new Error("Payment attempt belongs to another provider.");
       }
 
-      if (
-        !Number.isSafeInteger(amountCents) ||
-        amountCents <= 0
-      ) {
+      if (!Number.isSafeInteger(amountCents) || amountCents <= 0) {
         throw new Error("Invalid payment amount.");
       }
 
@@ -121,9 +103,7 @@ export function createOzowPaymentClient(
       // The caller supplies the expiry saved for this attempt.
       // Never generate a different expiry when reusing a request.
       const expiryMs =
-        typeof expiresAt === "string"
-          ? Date.parse(expiresAt)
-          : NaN;
+        typeof expiresAt === "string" ? Date.parse(expiresAt) : NaN;
 
       if (!Number.isFinite(expiryMs) || expiryMs <= now()) {
         throw new Error("The payment request expiry is invalid or expired.");
@@ -156,26 +136,25 @@ export function createOzowPaymentClient(
       let response;
 
       try {
-        response = await fetchImpl(
-          `${environment.apiOrigin}/v1/payments`,
-          {
-            method: "POST",
-            redirect: "error",
-            signal: AbortSignal.timeout(20_000),
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
-              Accept: "application/json",
-              "Idempotency-Key": paymentReference,
-            },
-            body: JSON.stringify(payload),
+        response = await fetchImpl(`${environment.apiOrigin}/v1/payments`, {
+          method: "POST",
+          redirect: "error",
+          signal: AbortSignal.timeout(20_000),
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            "Idempotency-Key": paymentReference,
           },
-        );
-      } catch {
-        // Ozow may have received the request before the connection failed.
-        throw uncertainOutcome(
+          body: JSON.stringify(payload),
+        });
+       } catch (cause) {
+        const error = uncertainOutcome(
           "Ozow payment request outcome is unknown. Review before retrying.",
         );
+
+        error.cause = cause;
+        throw error;
       }
 
       if (!response.ok) {
@@ -191,9 +170,7 @@ export function createOzowPaymentClient(
       try {
         data = await response.json();
       } catch {
-        throw uncertainOutcome(
-          "Ozow returned an unreadable payment response.",
-        );
+        throw uncertainOutcome("Ozow returned an unreadable payment response.");
       }
 
       if (
@@ -201,9 +178,7 @@ export function createOzowPaymentClient(
         !UUID.test(data.id) ||
         data.status !== "Created"
       ) {
-        throw uncertainOutcome(
-          "Ozow did not return a usable payment request.",
-        );
+        throw uncertainOutcome("Ozow did not return a usable payment request.");
       }
 
       let checkoutUrl;
@@ -218,9 +193,7 @@ export function createOzowPaymentClient(
 
         checkoutUrl = new URL(data.redirectUrl);
       } catch {
-        throw uncertainOutcome(
-          "Ozow did not return a valid checkout URL.",
-        );
+        throw uncertainOutcome("Ozow did not return a valid checkout URL.");
       }
 
       if (

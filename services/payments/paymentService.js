@@ -9,9 +9,7 @@ import {
 } from "../../models/OzowPaymentRequest.js";
 import { buildPayfastCheckout } from "./payfast.js";
 import { createOzowPaymentClient } from "./ozowPayment.js";
-import {
-  listPaymentReconciliationAlerts,
-} from "../../models/PaymentReconciliation.js";
+import { listPaymentReconciliationAlerts } from "../../models/PaymentReconciliation.js";
 
 function conflict(message) {
   const error = new Error(message);
@@ -90,8 +88,7 @@ export async function getPaymentPageData(orderId, userId) {
 
   const reasons = [];
   const paymentMethods = getAvailablePaymentMethods(order.is_demo);
-  const reconciliationAlerts =
-    await listPaymentReconciliationAlerts(order.id);
+  const reconciliationAlerts = await listPaymentReconciliationAlerts(order.id);
 
   if (reconciliationAlerts.length > 0) {
     reasons.push(
@@ -175,11 +172,7 @@ export async function getPaymentPageData(orderId, userId) {
   };
 }
 
-export async function startPayment(
-  orderId,
-  userId,
-  providerName = "payfast",
-) {
+export async function startPayment(orderId, userId, providerName = "payfast") {
   if (!["payfast", "ozow"].includes(providerName)) {
     throw conflict("Choose an available payment method.");
   }
@@ -216,11 +209,7 @@ export async function startPayment(
 
   // The database rechecks ownership, eligibility, stock and existing
   // attempts across BOTH providers under transaction locks.
-  const attempt = await createPaymentAttempt(
-    orderId,
-    userId,
-    providerName,
-  );
+  const attempt = await createPaymentAttempt(orderId, userId, providerName);
 
   if (providerName === "payfast") {
     return {
@@ -252,9 +241,11 @@ export async function startPayment(
     console.error("Ozow checkout needs review:", {
       paymentId: attempt.paymentId,
       orderId: attempt.orderId,
+      name: error.name,
       code: error.code,
+      message: error.message,
+      connectionCode: error.cause?.code,
     });
-
     // Never release stock or submit another provider request automatically:
     // a timeout can occur after Ozow has already created the request.
     throw conflict(
