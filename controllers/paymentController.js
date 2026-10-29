@@ -53,7 +53,22 @@ async function renderCheckout(req, res, start) {
 
   if (!orderId) return orderNotFound(res);
 
-  const checkout = await start(orderId, req.user.id);
+  let checkout;
+
+  try {
+    checkout = await start(orderId, req.user.id);
+  } catch (error) {
+    if (error.status === 404) {
+      return orderNotFound(res);
+    }
+
+    if (error.status === 409) {
+      return res.redirect(303, `/orders/${orderId}/payment`);
+    }
+
+    throw error;
+  }
+
   const isSandbox = checkout.mode === "sandbox";
 
   return res.render("payfast-checkout", {
