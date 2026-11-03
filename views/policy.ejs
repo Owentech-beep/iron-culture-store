@@ -1,0 +1,69 @@
+<%- include("partials/head") %>
+<%- include("partials/navbar") %>
+
+<main id="main-content" class="section-space">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-9">
+        <p class="eyebrow">CUSTOMER INFORMATION</p>
+        <h1 class="section-title"><%= policy.title %></h1>
+
+        <p class="text-muted-custom">
+          Last updated:
+          <time datetime="<%= policy.updatedAt %>">
+            <%= policy.updatedLabel %>
+          </time>
+        </p>
+
+        <p><%= policy.introduction %></p>
+
+        <% policy.sections.forEach((section) => { %>
+          <section class="account-panel mb-4">
+            <h2 class="h4"><%= section.heading %></h2>
+
+            <% (section.paragraphs || []).forEach((paragraph) => { %>
+              <p><%= paragraph %></p>
+            <% }); %>
+
+            <% if (section.items && section.items.length) { %>
+              <ul>
+                <% section.items.forEach((item) => { %>
+                  <li class="mb-2"><%= item %></li>
+                <% }); %>
+              </ul>
+            <% } %>
+          </section>
+        <% }); %>
+
+        <section class="account-panel">
+          <h2 class="h4">Contact Us</h2>
+
+          <p>
+            For questions about this policy, contact
+            Iron Culture Supplements.
+          </p>
+
+          <ul class="footer-list">
+            <li>
+              <a href="mailto:jp.grobler23@gmail.com">
+                jp.grobler23@gmail.com
+              </a>
+            </li>
+            <li>
+              <a href="tel:+27781763835">
+                078 176 3835
+              </a>
+            </li>
+          </ul>
+        </section>
+
+        <a href="/shop" class="btn btn-outline-brand mt-4">
+          Back to Shop
+        </a>
+      </div>
+    </div>
+  </div>
+</main>
+
+<%- include("partials/footer") %>
+<%- include("partials/scripts") %>

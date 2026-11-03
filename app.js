@@ -22,6 +22,7 @@ import newsletterRoutes from "./routes/newsletterRoutes.js";
 import { startEmailWorkerProcess } from "./services/emailWorkerProcess.js";
 import seoRoutes from "./routes/seoRoutes.js";
 import ozowNotificationRoutes from "./routes/ozowNotificationRoutes.js";
+import policyRoutes from "./routes/policyRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -110,6 +111,7 @@ app.use(sessionMiddleware);
 app.use(loadCurrentUser);
 app.use(csrfProtection);
 app.use(loadCartCount);
+app.use("/", policyRoutes);
 
 app.use("/admin", adminRoutes);
 
