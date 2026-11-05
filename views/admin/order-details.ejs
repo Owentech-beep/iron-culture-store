@@ -119,7 +119,10 @@
       a PayFast transaction.
     </p>
 
-    <% recoverableLiveAttempts.forEach((attempt) => { %>
+       <% recoverableLiveAttempts.forEach((attempt) => { %>
+      <% const isOzow = attempt.provider === "ozow_live"; %>
+      <% const providerName = isOzow ? "Ozow" : "PayFast"; %>
+
       <form
         action="/admin/orders/<%= order.id %>/payments/<%= attempt.id %>/close-live"
         method="POST"
@@ -128,32 +131,65 @@
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 
         <p>
-          Attempt <strong><%= attempt.id %></strong>
+          <strong><%= providerName %></strong> · Attempt <%= attempt.id %>
           · <%= formatMoney(attempt.amount_cents) %><br>
-          Reference:
+          Store status: <%= attempt.status %><br>
+          Merchant reference:
           <strong class="text-break"><%= attempt.idempotency_key %></strong>
         </p>
 
-        <label
-          for="live-reference-<%= attempt.id %>"
-          class="form-label"
-        >
-          Enter the exact reference you checked in PayFast
+        <label for="live-reference-<%= attempt.id %>" class="form-label">
+          Enter the exact merchant reference you checked with <%= providerName %>
         </label>
-
         <input
           id="live-reference-<%= attempt.id %>"
           name="reference"
           class="form-control mb-3"
           maxlength="36"
           autocomplete="off"
+          spellcheck="false"
           required
         >
 
-        <label for="live-note-<%= attempt.id %>" class="form-label">
-          Review findings
-        </label>
+        <% if (isOzow) { %>
+          <p>
+            Ozow request ID:
+            <span class="text-break">
+              <%= attempt.provider_request_id || "Not saved" %>
+            </span>
+          </p>
 
+          <label for="ozow-outcome-<%= attempt.id %>" class="form-label">
+            What did Ozow confirm for this merchant reference?
+          </label>
+          <select
+            id="ozow-outcome-<%= attempt.id %>"
+            name="ozowFinalOutcome"
+            class="form-select mb-2"
+            aria-describedby="ozow-help-<%= attempt.id %>"
+            required
+          >
+            <option value="">Choose the outcome Ozow confirmed</option>
+            <option value="confirmed_terminal_unpaid">
+              The request ended unpaid and can no longer collect payment.
+            </option>
+            <% if (attempt.status === "created" && !attempt.provider_request_id) { %>
+              <option value="confirmed_never_created">
+                Ozow confirmed no payment request was created for this reference.
+              </option>
+            <% } %>
+          </select>
+
+          <p id="ozow-help-<%= attempt.id %>" class="text-muted-custom mb-3">
+            If Ozow still shows pending or cannot confirm the outcome, leave
+            this attempt open. A missing request ID, an empty search result,
+            or a customer closing checkout is not confirmation.
+          </p>
+        <% } %>
+
+        <label for="live-note-<%= attempt.id %>" class="form-label">
+          Review findings — record the provider evidence or support ticket
+        </label>
         <textarea
           id="live-note-<%= attempt.id %>"
           name="note"
@@ -173,13 +209,17 @@
             class="form-check-input"
             required
           >
-
           <label
             for="live-confirm-<%= attempt.id %>"
             class="form-check-label"
           >
-            I checked this exact reference in live PayFast and confirmed
-            that no successful or pending transaction exists.
+            <% if (isOzow) { %>
+              I checked this exact merchant reference with Ozow and recorded
+              the evidence for the selected outcome.
+            <% } else { %>
+              I checked this exact reference in live PayFast and confirmed
+              that no successful or pending transaction exists.
+            <% } %>
           </label>
         </div>
 

@@ -3,11 +3,23 @@ import {
   assertNoOpenPaymentReconciliation,
 } from "./PaymentReconciliation.js";
 
-function enabled() {
-  return (
-    process.env.NODE_ENV === "production" &&
-    process.env.PAYFAST_MODE?.trim() === "live"
-  );
+const UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function liveRecoveryProviders() {
+  if (process.env.NODE_ENV !== "production") return [];
+
+  const providers = [];
+
+  if (process.env.PAYFAST_MODE?.trim() === "live") {
+    providers.push("payfast_live");
+  }
+
+  if (process.env.OZOW_MODE?.trim() === "live") {
+    providers.push("ozow_live");
+  }
+
+  return providers;
 }
 
 function conflict(message) {
@@ -17,39 +29,56 @@ function conflict(message) {
   return error;
 }
 
-export async function listRecoverableLiveAttempts(orderId) {
-  if (!enabled()) return [];
+export async function listRecoverableLiveAttempts(orderId, db = pool) {
+  const providers = liveRecoveryProviders();
+  if (!providers.length) return [];
 
-  const { rows } = await pool.query(
-    `SELECT p.id, p.idempotency_key, p.amount_cents, p.created_at
+  const { rows } = await db.query(
+    `SELECT p.id, p.provider, p.status, p.idempotency_key,
+            p.amount_cents, p.created_at, p.provider_request_id
      FROM payments p
      JOIN orders o ON o.id = p.order_id
      WHERE p.order_id = $1
-       AND p.provider = 'payfast_live'
-       AND p.status = 'created'
+       AND p.provider = ANY($2::text[])
+       AND (
+         p.status = 'created'
+         OR (p.provider = 'ozow_live' AND p.status = 'pending')
+       )
        AND p.provider_payment_id IS NULL
        AND p.created_at <= NOW() - INTERVAL '30 minutes'
        AND o.is_demo = FALSE
        AND o.status = 'pending'
        AND o.payment_status = 'unpaid'
        AND o.stock_deducted_at IS NULL
+       AND NOT EXISTS (
+         SELECT 1
+         FROM payment_reconciliation_alerts a
+         JOIN payments ap ON ap.id = a.payment_id
+         WHERE ap.order_id = o.id AND a.status = 'open'
+       )
      ORDER BY p.id`,
-    [orderId],
+    [orderId, providers],
   );
 
   return rows;
 }
 
-export async function closeVerifiedUnpaidLiveAttempt({
-  orderId,
-  paymentId,
-  adminId,
-  reference,
-  confirmChecked,
-  note,
-}, db = pool) {
-  if (!enabled()) {
-    throw conflict("Live recovery requires production and live PayFast mode.");
+export async function closeVerifiedUnpaidLiveAttempt(
+  {
+    orderId,
+    paymentId,
+    adminId,
+    reference,
+    confirmChecked,
+    note,
+    ozowFinalOutcome,
+  },
+  db = pool,
+) {
+  const providers = liveRecoveryProviders();
+
+  if (!providers.length) {
+    throw conflict("Live payment recovery is unavailable in this environment.");
   }
 
   if (
@@ -63,11 +92,11 @@ export async function closeVerifiedUnpaidLiveAttempt({
   if (
     confirmChecked !== true ||
     typeof reference !== "string" ||
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      reference,
-    )
+    !UUID.test(reference)
   ) {
-    throw conflict("Check PayFast and enter the exact payment reference.");
+    throw conflict(
+      "Check the payment provider and enter the exact merchant reference.",
+    );
   }
 
   if (
@@ -94,8 +123,7 @@ export async function closeVerifiedUnpaidLiveAttempt({
       throw conflict("An active administrator is required.");
     }
 
-    // Match payment processing lock order:
-    // order -> payment -> reservations -> inventory.
+    // Same lock order as payment completion.
     const { rows: orders } = await client.query(
       "SELECT * FROM orders WHERE id = $1 FOR UPDATE",
       [orderId],
@@ -117,13 +145,13 @@ export async function closeVerifiedUnpaidLiveAttempt({
 
     const { rows: payments } = await client.query(
       `SELECT *,
-         created_at <= NOW() - INTERVAL '30 minutes' AS old_enough
+              created_at <= NOW() - INTERVAL '30 minutes' AS old_enough
        FROM payments
        WHERE id = $1
          AND order_id = $2
-         AND provider = 'payfast_live'
+         AND provider = ANY($3::text[])
        FOR UPDATE`,
-      [paymentId, orderId],
+      [paymentId, orderId, providers],
     );
 
     const payment = payments[0];
@@ -133,7 +161,9 @@ export async function closeVerifiedUnpaidLiveAttempt({
       payment.provider_payment_id !== null ||
       String(payment.idempotency_key).toLowerCase() !== reference.toLowerCase()
     ) {
-      throw conflict("Payment details changed or the reference does not match.");
+      throw conflict(
+        "Payment details changed or the reference does not match.",
+      );
     }
 
     const { rows: reservations } = await client.query(
@@ -151,16 +181,47 @@ export async function closeVerifiedUnpaidLiveAttempt({
 
     const active = reservations.filter((row) => row.status === "active");
 
-    // A repeated submission must not release stock or add history twice.
+    // Duplicate submission: nothing more to release or record.
     if (payment.status === "cancelled" && active.length === 0) {
       await client.query("COMMIT");
       return;
     }
 
-    if (payment.status !== "created" || !payment.old_enough) {
+    const isOzow = payment.provider === "ozow_live";
+    const eligibleStatus =
+      payment.status === "created" ||
+      (isOzow && payment.status === "pending");
+
+    if (!eligibleStatus || !payment.old_enough) {
       throw conflict(
-        "Only created live attempts older than 30 minutes can be closed here.",
+        "Only eligible live attempts at least 30 minutes old can be closed here.",
       );
+    }
+
+    let reviewFinding = "Admin confirmed no successful or pending PayFast transaction.";
+
+    if (isOzow) {
+      if (ozowFinalOutcome === "confirmed_terminal_unpaid") {
+        reviewFinding =
+          "Admin confirmed with Ozow that the request ended unpaid and can no longer collect payment.";
+      } else if (ozowFinalOutcome === "confirmed_never_created") {
+        if (
+          payment.provider_request_id != null ||
+          payment.provider_checkout_url != null ||
+          payment.status === "pending"
+        ) {
+          throw conflict(
+            "The store has evidence of an Ozow request. Verify its final status with Ozow.",
+          );
+        }
+
+        reviewFinding =
+          "Admin confirmed with Ozow that no payment request was created for this reference.";
+      } else {
+        throw conflict(
+          "Record Ozow's confirmed final unpaid outcome before allowing another payment.",
+        );
+      }
     }
 
     for (const reservation of active) {
@@ -199,6 +260,7 @@ export async function closeVerifiedUnpaidLiveAttempt({
       [paymentId],
     );
 
+    // The order stays pending and unpaid. Only the attempt is closed.
     await client.query(
       `INSERT INTO order_status_history (
          order_id, previous_status, new_status, changed_by, note
@@ -208,10 +270,9 @@ export async function closeVerifiedUnpaidLiveAttempt({
         orderId,
         order.status,
         adminId,
-        `Locally closed live payment ${paymentId}. ` +
+        `Locally closed ${payment.provider} payment ${paymentId}. ` +
           `Reference: ${payment.idempotency_key}. ` +
-          `Admin confirmed no successful or pending PayFast transaction. ` +
-          note.trim(),
+          `${reviewFinding} ${note.trim()}`,
       ],
     );
 

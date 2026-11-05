@@ -355,6 +355,7 @@ export async function submitLiveRecovery(req, res) {
       adminId: req.user.id,
       reference: text(req.body.reference),
       confirmChecked: req.body.confirmChecked === "yes",
+      ozowFinalOutcome: req.body.ozowFinalOutcome,
       note: text(req.body.note),
     });
   } catch (error) {

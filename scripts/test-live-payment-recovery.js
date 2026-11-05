@@ -4,13 +4,12 @@ import { randomUUID } from "node:crypto";
 import pg from "pg";
 
 import { pool } from "../config/database.js";
-import {
-  closeVerifiedUnpaidLiveAttempt,
-} from "../models/LivePaymentRecovery.js";
+import { closeVerifiedUnpaidLiveAttempt } from "../models/LivePaymentRecovery.js";
 
 const schema = `test_live_recovery_${randomUUID().replaceAll("-", "")}`;
 const originalNodeEnv = process.env.NODE_ENV;
 const originalPayfastMode = process.env.PAYFAST_MODE;
+const originalOzowMode = process.env.OZOW_MODE;
 
 let testPool;
 let schemaCreated = false;
@@ -21,10 +20,7 @@ function restoreEnv(name, value) {
 }
 
 try {
-  if (
-    process.env.NODE_ENV !== "development" ||
-    process.env.DATABASE_URL
-  ) {
+  if (process.env.NODE_ENV !== "development" || process.env.DATABASE_URL) {
     throw new Error("Run only against local development PostgreSQL.");
   }
 
@@ -36,9 +32,7 @@ try {
 
   assert.equal(connection[0].database, "iron_culture_store");
   assert.ok(
-    ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(
-      connection[0].address,
-    ),
+    ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(connection[0].address),
     "Expected local PostgreSQL.",
   );
 
@@ -189,10 +183,8 @@ try {
     const before = await snapshot();
 
     await assert.rejects(
-      () => closeVerifiedUnpaidLiveAttempt(
-        { ...request, ...overrides },
-        testPool,
-      ),
+      () =>
+        closeVerifiedUnpaidLiveAttempt({ ...request, ...overrides }, testPool),
       (error) => error.status === 409,
     );
 
@@ -212,48 +204,60 @@ try {
     reference: randomUUID(),
   });
 
-  await expectBlocked("non-admin user", () => testPool.query(
-    "UPDATE users SET role = 'customer' WHERE id = 1",
-  ));
+  await expectBlocked("non-admin user", () =>
+    testPool.query("UPDATE users SET role = 'customer' WHERE id = 1"),
+  );
 
-  await expectBlocked("demo order", () => testPool.query(
-    "UPDATE orders SET is_demo = TRUE WHERE id = 1",
-  ));
+  await expectBlocked("demo order", () =>
+    testPool.query("UPDATE orders SET is_demo = TRUE WHERE id = 1"),
+  );
 
-  await expectBlocked("sandbox payment", () => testPool.query(
-    "UPDATE payments SET provider = 'payfast_sandbox' WHERE id = 1",
-  ));
+  await expectBlocked("sandbox payment", () =>
+    testPool.query(
+      "UPDATE payments SET provider = 'payfast_sandbox' WHERE id = 1",
+    ),
+  );
 
-  await expectBlocked("recent attempt", () => testPool.query(
-    "UPDATE payments SET created_at = NOW() WHERE id = 1",
-  ));
+  await expectBlocked("recent attempt", () =>
+    testPool.query("UPDATE payments SET created_at = NOW() WHERE id = 1"),
+  );
 
-  await expectBlocked("pending provider attempt", () => testPool.query(
-    "UPDATE payments SET status = 'pending' WHERE id = 1",
-  ));
+  await expectBlocked("pending provider attempt", () =>
+    testPool.query("UPDATE payments SET status = 'pending' WHERE id = 1"),
+  );
 
-  await expectBlocked("recorded provider transaction", () => testPool.query(
-    "UPDATE payments SET provider_payment_id = 'TEST-PROVIDER-ID' WHERE id = 1",
-  ));
+  await expectBlocked("recorded provider transaction", () =>
+    testPool.query(
+      "UPDATE payments SET provider_payment_id = 'TEST-PROVIDER-ID' WHERE id = 1",
+    ),
+  );
 
-  await expectBlocked("paid order", () => testPool.query(
-    "UPDATE orders SET status = 'paid', payment_status = 'paid' WHERE id = 1",
-  ));
+  await expectBlocked("paid order", () =>
+    testPool.query(
+      "UPDATE orders SET status = 'paid', payment_status = 'paid' WHERE id = 1",
+    ),
+  );
 
-  await expectBlocked("consumed reservation", () => testPool.query(
-    "UPDATE stock_reservations SET status = 'consumed' WHERE id = 1",
-  ));
+  await expectBlocked("consumed reservation", () =>
+    testPool.query(
+      "UPDATE stock_reservations SET status = 'consumed' WHERE id = 1",
+    ),
+  );
 
-  await expectBlocked("open reconciliation alert", () => testPool.query(
-    `INSERT INTO payment_reconciliation_alerts
+  await expectBlocked("open reconciliation alert", () =>
+    testPool.query(
+      `INSERT INTO payment_reconciliation_alerts
      VALUES (1, 1, 'open')`,
-  ));
+    ),
+  );
 
   // Variant 1 would be released before variant 2 fails.
   // The transaction must roll back both changes.
-  await expectBlocked("partial stock release rolls back", () => testPool.query(
-    "UPDATE inventory SET reserved_quantity = 0 WHERE variant_id = 2",
-  ));
+  await expectBlocked("partial stock release rolls back", () =>
+    testPool.query(
+      "UPDATE inventory SET reserved_quantity = 0 WHERE variant_id = 2",
+    ),
+  );
 
   await resetFixture();
 
@@ -295,6 +299,121 @@ try {
   assert.deepEqual(await snapshot(), beforeRepeat);
 
   console.log("PASS: repeated closure changes nothing.");
+  // Ozow recovery must work even when PayFast is not in live mode.
+  process.env.PAYFAST_MODE = "sandbox";
+  process.env.OZOW_MODE = "live";
+
+  await resetFixture();
+
+  // This older test schema may predate the Ozow request columns.
+  await testPool.query(`
+    ALTER TABLE payments
+      ADD COLUMN IF NOT EXISTS provider_request_id TEXT,
+      ADD COLUMN IF NOT EXISTS provider_checkout_url TEXT
+  `);
+
+  await testPool.query(
+    `UPDATE payments
+     SET provider = 'ozow_live',
+         status = 'pending',
+         provider_request_id = $1,
+         provider_checkout_url = $2
+     WHERE id = 1`,
+    [randomUUID(), "https://example.invalid/checkout/test-only"],
+  );
+
+  const ozowReview = {
+    ...request,
+    note: "Disposable test: provider confirmed terminal unpaid status.",
+  };
+
+  async function expectOzowBlocked(label, overrides, expectedMessage) {
+    const before = await snapshot();
+
+    await assert.rejects(
+      () =>
+        closeVerifiedUnpaidLiveAttempt(
+          { ...ozowReview, ...overrides },
+          testPool,
+        ),
+      (error) => error.status === 409 && expectedMessage.test(error.message),
+      label,
+    );
+
+    assert.deepEqual(await snapshot(), before, `${label}: records changed`);
+    console.log(`PASS: ${label}; no records changed.`);
+  }
+
+  await expectOzowBlocked(
+    "pending Ozow attempt without a verified outcome is blocked",
+    {},
+    /confirmed final unpaid outcome/i,
+  );
+
+  await expectOzowBlocked(
+    "Ozow request with a saved ID cannot be recorded as never created",
+    { ozowFinalOutcome: "confirmed_never_created" },
+    /evidence of an Ozow request/i,
+  );
+
+  const verifiedOzowReview = {
+    ...ozowReview,
+    ozowFinalOutcome: "confirmed_terminal_unpaid",
+  };
+
+  // Both calls must finish before we inspect records or clean up.
+  const ozowClosures = await Promise.allSettled([
+    closeVerifiedUnpaidLiveAttempt(verifiedOzowReview, testPool),
+    closeVerifiedUnpaidLiveAttempt(verifiedOzowReview, testPool),
+  ]);
+
+  for (const result of ozowClosures) {
+    if (result.status === "rejected") throw result.reason;
+  }
+
+  const ozowState = await snapshot();
+
+  assert.equal(ozowState.payments[0].status, "cancelled");
+  assert.equal(ozowState.payments[0].provider, "ozow_live");
+  assert.ok(ozowState.payments[0].provider_request_id);
+  assert.ok(ozowState.stock_reservations.length > 0);
+  assert.ok(
+    ozowState.stock_reservations.every((row) => row.status === "released"),
+  );
+
+  // Same starting fixture and same expected stock balances as PayFast.
+  // Compare quantities rather than timestamps generated by separate runs.
+  const balances = (rows) =>
+    rows
+      .map(({ variant_id, quantity, reserved_quantity }) => ({
+        variant_id,
+        quantity,
+        reserved_quantity,
+      }))
+      .sort((a, b) => a.variant_id - b.variant_id);
+
+  assert.deepEqual(balances(ozowState.inventory), balances(state.inventory));
+  assert.equal(ozowState.orders[0].status, "pending");
+  assert.equal(ozowState.orders[0].payment_status, "unpaid");
+  assert.equal(ozowState.orders[0].stock_deducted_at, null);
+
+  assert.equal(ozowState.order_status_history.length, 1);
+  const ozowAudit = ozowState.order_status_history[0];
+  assert.equal(ozowAudit.changed_by, request.adminId);
+  assert.ok(ozowAudit.note.includes(reference));
+  assert.ok(ozowAudit.note.includes("ozow_live"));
+  assert.ok(ozowAudit.note.includes(ozowReview.note));
+
+  await closeVerifiedUnpaidLiveAttempt(verifiedOzowReview, testPool);
+  assert.deepEqual(await snapshot(), ozowState);
+
+  console.log(
+    "PASS: verified Ozow closure works with PayFast disabled in live mode.",
+  );
+  console.log("PASS: duplicate Ozow closures release reservations only once.");
+  console.log(
+    "PASS: order remains unpaid and one Ozow audit entry is recorded.",
+  );
   console.log("No emails or payment requests were sent.");
 } catch (error) {
   console.error("TEST FAILED:", error);
@@ -302,6 +421,7 @@ try {
 } finally {
   restoreEnv("NODE_ENV", originalNodeEnv);
   restoreEnv("PAYFAST_MODE", originalPayfastMode);
+  restoreEnv("OZOW_MODE", originalOzowMode);
 
   if (testPool) await testPool.end();
 
