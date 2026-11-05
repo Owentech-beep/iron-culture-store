@@ -23,20 +23,29 @@
     </p>
 
     <% reconciliationAlerts.forEach((alert) => { %>
+            <%
+        const provider = alert.payment_provider;
+        const isLive = ["payfast_live", "ozow_live"].includes(provider);
+        const isTest = ["payfast_sandbox", "ozow_staging"].includes(provider);
+
+        const providerLabel = {
+          payfast_live: "PayFast · Live",
+          payfast_sandbox: "PayFast · Sandbox",
+          ozow_live: "Ozow · Live",
+          ozow_staging: "Ozow · Staging",
+        }[provider] || "Unknown provider";
+
+        const matchesOrder =
+          (isLive && order.is_demo === false) ||
+          (isTest && order.is_demo === true);
+      %>
       <div class="notice-panel mb-3">
         <p>
-          Payment environment:
-          <strong>
-            <%= alert.payment_provider === "payfast_live"
-              ? "Live"
-              : alert.payment_provider === "payfast_sandbox"
-                ? "Sandbox"
-                : "Unknown" %>
-          </strong>
+          Payment provider: <strong><%= providerLabel %></strong>
         </p>
 
         <p>
-          PayFast transaction:
+          Provider transaction:
           <strong><%= alert.provider_payment_id %></strong>
         </p>
 
@@ -46,19 +55,16 @@
         </p>
 
         <p>
-          Reported PayFast status:
+          Reported payment status:
           <strong><%= alert.provider_status %></strong>
         </p>
 
         <p class="mb-0"><%= alert.reason %></p>
-         <% if (
-              alert.provider_status === "COMPLETE" &&
-              order.payment_status === "paid" &&
-              (
-                (alert.payment_provider === "payfast_live" && !order.is_demo) ||
-                (alert.payment_provider === "payfast_sandbox" && order.is_demo)
-              )
-            ) { %>
+        <% if (
+          alert.provider_status === "COMPLETE" &&
+          order.payment_status === "paid" &&
+          matchesOrder
+        ) { %>
           <form
             action="/admin/orders/<%= order.id %>/reconciliation/<%= alert.id %>/resolve"
             method="POST"
@@ -113,10 +119,10 @@
     <h2 class="h5">Review Unfinished Live Payments</h2>
 
     <p>
-      Check the exact reference in live PayFast before closing an attempt.
-      Close it only if no successful or pending transaction exists.
-      This releases reserved stock locally. It does not cancel or refund
-      a PayFast transaction.
+      Check the merchant reference with the provider shown for this attempt.
+      If the payment is pending or its outcome is unknown, leave it open.
+      Closing an attempt releases its stock reservation in the store;
+      it does not cancel or refund a payment at the provider.
     </p>
 
        <% recoverableLiveAttempts.forEach((attempt) => { %>
