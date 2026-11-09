@@ -6,6 +6,7 @@ import { queueOrderEmail } from "../services/orderEmailService.js";
 import { getPayfastConfig } from "../config/payfast.js";
 import { recordPaidOrderCosts } from "./StockCost.js";
 import { getOzowConfig } from "../config/ozow.js";
+import { getStitchConfig } from "../config/stitch.js";
 
 function paymentConflict(message) {
   const error = new Error(message);
@@ -38,6 +39,12 @@ export async function createPaymentAttempt(
       mode: ozow.mode,
       provider: ozow.provider,
     };
+  } else if (providerName === "stitch") {
+    config = getStitchConfig();
+
+    if (!config) {
+      throw paymentConflict("Stitch payments are temporarily unavailable.");
+    }
   } else {
     throw paymentConflict("Unsupported payment provider.");
   }
@@ -64,7 +71,10 @@ export async function createPaymentAttempt(
 
     await assertNoOpenPaymentReconciliation(client, orderId);
 
-    if (["sandbox", "staging"].includes(config.mode) && !order.is_demo) {
+    if (
+      ["sandbox", "staging", "test"].includes(config.mode) &&
+      !order.is_demo
+    ) {
       throw paymentConflict("Test payments require a demo order.");
     }
 
@@ -92,8 +102,9 @@ export async function createPaymentAttempt(
     }
 
     const amountCents = Number(order.total_cents);
+    const minimumCents = providerName === "stitch" ? 100 : 1;
 
-    if (!Number.isSafeInteger(amountCents) || amountCents <= 0) {
+    if (!Number.isSafeInteger(amountCents) || amountCents < minimumCents) {
       throw paymentConflict("This order has an invalid payment amount.");
     }
 
@@ -245,6 +256,8 @@ export async function completePayment({
     "payfast_live",
     "ozow_staging",
     "ozow_live",
+    "stitch_test",
+    "stitch_live",
   ];
 
   if (!supportedProviders.includes(provider)) {
@@ -252,10 +265,23 @@ export async function completePayment({
   }
 
   const isOzow = provider.startsWith("ozow_");
-  const isTest = ["payfast_sandbox", "ozow_staging"].includes(provider);
+  const isStitch = provider.startsWith("stitch_");
+  const requiresClaim = isOzow || isStitch;
+
+  const isTest = ["payfast_sandbox", "ozow_staging", "stitch_test"].includes(
+    provider,
+  );
 
   const uuidPattern =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  let paymentIdPattern = /^\d{1,255}$/;
+
+  if (isOzow) {
+    paymentIdPattern = uuidPattern;
+  } else if (isStitch) {
+    paymentIdPattern = /^[A-Za-z0-9_-]{1,255}$/;
+  }
 
   if (
     typeof paymentReference !== "string" ||
@@ -263,17 +289,14 @@ export async function completePayment({
     !Number.isSafeInteger(amountCents) ||
     amountCents <= 0 ||
     typeof providerPaymentId !== "string" ||
-    !(isOzow
-      ? uuidPattern.test(providerPaymentId)
-      : /^\d{1,255}$/.test(providerPaymentId))
+    !paymentIdPattern.test(providerPaymentId)
   ) {
     throw paymentConflict("Invalid payment confirmation.");
   }
 
-  // Ozow callers must explicitly supply the verified success status.
-  // Existing PayFast callers already check COMPLETE in their controller.
+  // Hosted payment callers must supply the verified success status.
   if (
-    (isOzow && paymentStatus !== "COMPLETE") ||
+    (requiresClaim && paymentStatus !== "COMPLETE") ||
     (paymentStatus !== undefined && paymentStatus !== "COMPLETE")
   ) {
     throw paymentConflict("Only completed payments can confirm an order.");
@@ -327,7 +350,7 @@ export async function completePayment({
       !order ||
       !payment ||
       order.is_demo !== isTest ||
-      (isOzow && !payment.provider_request_started_at) ||
+      (requiresClaim && !payment.provider_request_started_at) ||
       payment.currency !== "ZAR" ||
       Number(payment.amount_cents) !== amountCents
     ) {

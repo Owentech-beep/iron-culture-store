@@ -187,7 +187,7 @@ export async function submitCheckout(req, res) {
 
     if (
       typeof providerName !== "string" ||
-      !["payfast", "ozow"].includes(providerName)
+      !["payfast", "ozow", "stitch"].includes(providerName)
     ) {
       throw checkoutError(
         "Choose a payment method and review your order again.",
@@ -201,7 +201,7 @@ export async function submitCheckout(req, res) {
     // under database locks before creating the payment attempt.
     const checkout = await startPayment(orderId, req.user.id, providerName);
 
-    if (checkout.providerName === "ozow") {
+   if (["ozow", "stitch"].includes(checkout.providerName)) {
       return res.redirect(303, checkout.checkoutUrl);
     }
 

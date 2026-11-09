@@ -23,16 +23,28 @@
     </p>
 
     <% reconciliationAlerts.forEach((alert) => { %>
-            <%
+      <%
         const provider = alert.payment_provider;
-        const isLive = ["payfast_live", "ozow_live"].includes(provider);
-        const isTest = ["payfast_sandbox", "ozow_staging"].includes(provider);
+
+        const isLive = [
+          "payfast_live",
+          "ozow_live",
+          "stitch_live",
+        ].includes(provider);
+
+        const isTest = [
+          "payfast_sandbox",
+          "ozow_staging",
+          "stitch_test",
+        ].includes(provider);
 
         const providerLabel = {
           payfast_live: "PayFast · Live",
           payfast_sandbox: "PayFast · Sandbox",
           ozow_live: "Ozow · Live",
           ozow_staging: "Ozow · Staging",
+          stitch_live: "Stitch Express · Live",
+          stitch_test: "Stitch Express · Test",
         }[provider] || "Unknown provider";
 
         const matchesOrder =

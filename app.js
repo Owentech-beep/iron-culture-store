@@ -23,6 +23,7 @@ import { startEmailWorkerProcess } from "./services/emailWorkerProcess.js";
 import seoRoutes from "./routes/seoRoutes.js";
 import ozowNotificationRoutes from "./routes/ozowNotificationRoutes.js";
 import policyRoutes from "./routes/policyRoutes.js";
+import stitchNotificationRoutes from "./routes/stitchNotificationRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,6 +53,7 @@ app.set("views", path.join(__dirname, "views"));
 app.use(seoRoutes);
 app.use("/payments/payfast", payfastNotificationRoutes);
 app.use("/payments/ozow", ozowNotificationRoutes);
+app.use("/payments/stitch", stitchNotificationRoutes);
 
 app.use(express.urlencoded({ extended: false, limit: "20kb" }));
 app.use(express.json({ limit: "20kb" }));

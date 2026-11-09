@@ -65,7 +65,7 @@ async function renderCheckout(req, res, start) {
     throw error;
   }
 
-  if (checkout.providerName === "ozow") {
+  if (["ozow", "stitch"].includes(checkout.providerName)) {
     return res.redirect(303, checkout.checkoutUrl);
   }
 
@@ -94,9 +94,15 @@ export async function submitSandboxPayment(req, res) {
 }
 
 export async function submitOzowPayment(req, res) {
+  return renderCheckout(req, res, (orderId, userId) =>
+    startPayment(orderId, userId, "ozow"),
+  );
+}
+
+export async function submitStitchPayment(req, res) {
   return renderCheckout(
     req,
     res,
-    (orderId, userId) => startPayment(orderId, userId, "ozow"),
+    (orderId, userId) => startPayment(orderId, userId, "stitch"),
   );
 }

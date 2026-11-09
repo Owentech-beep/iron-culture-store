@@ -8,30 +8,45 @@ export async function recordPaymentReconciliation({
   paymentStatus = "COMPLETE",
   provider,
 }) {
-  if (
-    !["payfast_sandbox", "payfast_live", "ozow_staging", "ozow_live"].includes(
-      provider,
-    )
-  ) {
+  const supportedProviders = [
+    "payfast_sandbox",
+    "payfast_live",
+    "ozow_staging",
+    "ozow_live",
+    "stitch_test",
+    "stitch_live",
+  ];
+
+  if (!supportedProviders.includes(provider)) {
     throw new Error("Unexpected payment provider.");
   }
-
   const uuidPattern =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
   const isOzow = provider.startsWith("ozow_");
+  const isStitch = provider.startsWith("stitch_");
+
+  let paymentIdPattern = /^\d{1,255}$/;
+
+  if (isOzow) {
+    paymentIdPattern = uuidPattern;
+  } else if (isStitch) {
+    paymentIdPattern = /^[A-Za-z0-9_-]{1,255}$/;
+  }
 
   if (
     typeof paymentReference !== "string" ||
     !uuidPattern.test(paymentReference) ||
     typeof providerPaymentId !== "string" ||
-    !(isOzow
-      ? uuidPattern.test(providerPaymentId)
-      : /^\d{1,255}$/.test(providerPaymentId)) ||
+    !paymentIdPattern.test(providerPaymentId) ||
     !Number.isSafeInteger(amountCents) ||
     amountCents <= 0
   ) {
     throw new Error("Invalid reconciliation payment details.");
+  }
+
+  if (isStitch && paymentStatus !== "COMPLETE") {
+    throw new Error("Unexpected Stitch payment status.");
   }
 
   if (
@@ -57,6 +72,8 @@ export async function recordPaymentReconciliation({
     payfast_sandbox: "PayFast sandbox",
     ozow_live: "Ozow",
     ozow_staging: "Ozow staging",
+    stitch_live: "Stitch Express",
+    stitch_test: "Stitch Express test",
   }[provider];
 
   const reason =
@@ -224,12 +241,14 @@ export async function resolveSuccessfulPaymentAlert({
         "payfast_live",
         "ozow_staging",
         "ozow_live",
+        "stitch_test",
+        "stitch_live",
       ].includes(payment.provider)
     ) {
       throw reject("Supported payment alert not found.");
     }
 
-    const isTest = ["payfast_sandbox", "ozow_staging"].includes(
+    const isTest = ["payfast_sandbox", "ozow_staging", "stitch_test"].includes(
       payment.provider,
     );
 

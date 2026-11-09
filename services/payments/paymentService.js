@@ -10,6 +10,12 @@ import {
 import { buildPayfastCheckout } from "./payfast.js";
 import { createOzowPaymentClient } from "./ozowPayment.js";
 import { listPaymentReconciliationAlerts } from "../../models/PaymentReconciliation.js";
+import { getStitchConfig } from "../../config/stitch.js";
+import { createStitchPaymentClient } from "./stitchPayment.js";
+import {
+  claimHostedPaymentRequest,
+  saveHostedPaymentRequest,
+} from "../../models/HostedPaymentRequest.js";
 
 function conflict(message) {
   const error = new Error(message);
@@ -53,6 +59,21 @@ export function getAvailablePaymentMethods(isDemo) {
     }
   } catch {
     // Invalid Ozow configuration must not disable PayFast.
+  }
+
+  try {
+    const config = getStitchConfig();
+
+    if (config && isDemo === (config.mode === "test")) {
+      methods.push({
+        id: "stitch",
+        label:
+          config.mode === "test" ? "Stitch Express test" : "Stitch Express",
+        mode: config.mode,
+      });
+    }
+  } catch {
+    // Other payment methods remain available if Stitch is misconfigured.
   }
 
   return methods;
@@ -173,7 +194,7 @@ export async function getPaymentPageData(orderId, userId) {
 }
 
 export async function startPayment(orderId, userId, providerName = "payfast") {
-  if (!["payfast", "ozow"].includes(providerName)) {
+  if (!["payfast", "ozow", "stitch"].includes(providerName)) {
     throw conflict("Choose an available payment method.");
   }
 
@@ -191,6 +212,10 @@ export async function startPayment(orderId, userId, providerName = "payfast") {
 
   if (!data.paymentMethods.some((method) => method.id === providerName)) {
     throw conflict("The selected payment method is unavailable.");
+  }
+
+  if (providerName === "stitch") {
+    return startStitchCheckout(orderId, userId, data.order);
   }
 
   let ozowConfig = null;
@@ -260,4 +285,80 @@ export async function startSandboxPayment(orderId, userId) {
   }
 
   return startPayment(orderId, userId, "payfast");
+}
+
+let cachedStitchConfig = null;
+let cachedStitchClient = null;
+
+function getStitchClient(config) {
+  const unchanged =
+    cachedStitchConfig &&
+    ["mode", "clientId", "clientSecret", "baseUrl"].every(
+      (key) => cachedStitchConfig[key] === config[key],
+    );
+
+  if (!unchanged) {
+    cachedStitchClient = createStitchPaymentClient(config);
+    cachedStitchConfig = config;
+  }
+
+  return cachedStitchClient;
+}
+
+async function startStitchCheckout(orderId, userId, order) {
+  const config = getStitchConfig();
+
+  if (!config) {
+    throw conflict("Stitch payments are temporarily unavailable.");
+  }
+
+  const stitchClient = getStitchClient(config);
+
+  const { firstName = "", lastName = "" } =
+    order.shipping_address ?? {};
+
+  const payerName = `${firstName} ${lastName}`.trim().slice(0, 40);
+
+  // Recheck ownership, order eligibility and stock under database locks.
+  const attempt = await createPaymentAttempt(
+    orderId,
+    userId,
+    "stitch",
+  );
+
+  try {
+    // Commit the claim before submitting the provider request.
+    const claimed = await claimHostedPaymentRequest({
+      paymentId: attempt.paymentId,
+      orderId: attempt.orderId,
+      userId,
+      provider: config.provider,
+    });
+
+    const result = await stitchClient.createPaymentRequest({
+      ...claimed,
+      payerName: payerName.length >= 3 ? payerName : "Customer",
+    });
+
+    // Persist the link before returning it to the customer.
+    await saveHostedPaymentRequest(claimed, result);
+
+    return {
+      providerName: "stitch",
+      mode: config.mode,
+      checkoutUrl: result.checkoutUrl,
+    };
+  } catch (error) {
+    console.error("Stitch checkout needs review", {
+      paymentId: attempt.paymentId,
+      orderId: attempt.orderId,
+      code: error.code,
+      status: error.status,
+    });
+
+    // An uncertain outcome keeps its claim and stock reservation.
+    throw conflict(
+      "Your payment attempt needs review. Check Payment Status before trying again.",
+    );
+  }
 }
