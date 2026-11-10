@@ -226,6 +226,7 @@ export async function submitCheckout(req, res) {
         name: error.name,
         code: error.code,
         status: error.status,
+         message: error.message,
       });
 
       return res.redirect(303, `/orders/${orderId}/payment`);

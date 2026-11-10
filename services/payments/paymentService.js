@@ -354,6 +354,7 @@ async function startStitchCheckout(orderId, userId, order) {
       orderId: attempt.orderId,
       code: error.code,
       status: error.status,
+      message: error.message,
     });
 
     // An uncertain outcome keeps its claim and stock reservation.
