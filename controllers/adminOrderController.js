@@ -74,9 +74,9 @@ export async function showAdminOrder(req, res) {
     : [];
   const reconciliationAlerts = await listPaymentReconciliationAlerts(order.id);
   const recoverableLiveAttempts =
-  reconciliationAlerts.length === 0
-    ? await listRecoverableLiveAttempts(order.id)
-    : [];
+    reconciliationAlerts.length === 0
+      ? await listRecoverableLiveAttempts(order.id)
+      : [];
 
   const allowedStatuses =
     reconciliationAlerts.length > 0 ? [] : availableOrderStatuses(order);
@@ -346,7 +346,7 @@ export async function submitLiveRecovery(req, res) {
     return reject("Invalid order or payment.");
   }
 
-  const text = (value) => typeof value === "string" ? value.trim() : "";
+  const text = (value) => (typeof value === "string" ? value.trim() : "");
 
   try {
     await closeVerifiedUnpaidLiveAttempt({
@@ -356,6 +356,7 @@ export async function submitLiveRecovery(req, res) {
       reference: text(req.body.reference),
       confirmChecked: req.body.confirmChecked === "yes",
       ozowFinalOutcome: req.body.ozowFinalOutcome,
+      stitchFinalOutcome: text(req.body.stitchFinalOutcome),
       note: text(req.body.note),
     });
   } catch (error) {

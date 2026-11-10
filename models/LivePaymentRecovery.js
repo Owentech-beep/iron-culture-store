@@ -1,10 +1,7 @@
 import { pool } from "../config/database.js";
-import {
-  assertNoOpenPaymentReconciliation,
-} from "./PaymentReconciliation.js";
+import { assertNoOpenPaymentReconciliation } from "./PaymentReconciliation.js";
 
-const UUID =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function liveRecoveryProviders() {
   if (process.env.NODE_ENV !== "production") return [];
@@ -17,6 +14,10 @@ function liveRecoveryProviders() {
 
   if (process.env.OZOW_MODE?.trim() === "live") {
     providers.push("ozow_live");
+  }
+
+  if (process.env.STITCH_MODE?.trim() === "live") {
+    providers.push("stitch_live");
   }
 
   return providers;
@@ -42,7 +43,10 @@ export async function listRecoverableLiveAttempts(orderId, db = pool) {
        AND p.provider = ANY($2::text[])
        AND (
          p.status = 'created'
-         OR (p.provider = 'ozow_live' AND p.status = 'pending')
+     OR (
+      p.provider IN ('ozow_live', 'stitch_live')
+      AND p.status = 'pending'
+    )
        )
        AND p.provider_payment_id IS NULL
        AND p.created_at <= NOW() - INTERVAL '30 minutes'
@@ -72,6 +76,7 @@ export async function closeVerifiedUnpaidLiveAttempt(
     confirmChecked,
     note,
     ozowFinalOutcome,
+    stitchFinalOutcome,
   },
   db = pool,
 ) {
@@ -188,9 +193,12 @@ export async function closeVerifiedUnpaidLiveAttempt(
     }
 
     const isOzow = payment.provider === "ozow_live";
+    const isStitch = payment.provider === "stitch_live";
+    const isHosted = isOzow || isStitch;
+
     const eligibleStatus =
       payment.status === "created" ||
-      (isOzow && payment.status === "pending");
+      (isHosted && payment.status === "pending");
 
     if (!eligibleStatus || !payment.old_enough) {
       throw conflict(
@@ -198,28 +206,36 @@ export async function closeVerifiedUnpaidLiveAttempt(
       );
     }
 
-    let reviewFinding = "Admin confirmed no successful or pending PayFast transaction.";
+    let reviewFinding =
+      "Admin confirmed no successful or pending PayFast transaction.";
 
-    if (isOzow) {
-      if (ozowFinalOutcome === "confirmed_terminal_unpaid") {
+    if (isHosted) {
+      const providerName = isStitch ? "Stitch" : "Ozow";
+      const finalOutcome = isStitch ? stitchFinalOutcome : ozowFinalOutcome;
+
+      if (finalOutcome === "confirmed_terminal_unpaid") {
         reviewFinding =
-          "Admin confirmed with Ozow that the request ended unpaid and can no longer collect payment.";
-      } else if (ozowFinalOutcome === "confirmed_never_created") {
+          `Admin confirmed with ${providerName} that the request ` +
+          "ended unpaid and can no longer collect payment.";
+      } else if (finalOutcome === "confirmed_never_created") {
         if (
           payment.provider_request_id != null ||
           payment.provider_checkout_url != null ||
           payment.status === "pending"
         ) {
           throw conflict(
-            "The store has evidence of an Ozow request. Verify its final status with Ozow.",
+            `The store has evidence of a ${providerName} request. ` +
+              `Verify its final status with ${providerName}.`,
           );
         }
 
         reviewFinding =
-          "Admin confirmed with Ozow that no payment request was created for this reference.";
+          `Admin confirmed with ${providerName} that no payment ` +
+          "request was created for this reference.";
       } else {
         throw conflict(
-          "Record Ozow's confirmed final unpaid outcome before allowing another payment.",
+          `Record ${providerName}'s confirmed final unpaid outcome ` +
+            "before allowing another payment.",
         );
       }
     }
@@ -281,7 +297,9 @@ export async function closeVerifiedUnpaidLiveAttempt(
     await client.query("ROLLBACK").catch(() => {});
 
     if (["55P03", "40P01"].includes(error.code)) {
-      throw conflict("Payment records are being updated. Refresh and try again.");
+      throw conflict(
+        "Payment records are being updated. Refresh and try again.",
+      );
     }
 
     throw error;

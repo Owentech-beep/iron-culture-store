@@ -138,8 +138,15 @@
     </p>
 
        <% recoverableLiveAttempts.forEach((attempt) => { %>
-      <% const isOzow = attempt.provider === "ozow_live"; %>
-      <% const providerName = isOzow ? "Ozow" : "PayFast"; %>
+      <%
+        const isOzow = attempt.provider === "ozow_live";
+        const isStitch = attempt.provider === "stitch_live";
+        const providerName = {
+          payfast_live: "PayFast",
+          ozow_live: "Ozow",
+          stitch_live: "Stitch Express",
+        }[attempt.provider] || "Unknown provider";
+      %>
 
       <form
         action="/admin/orders/<%= order.id %>/payments/<%= attempt.id %>/close-live"
@@ -202,6 +209,54 @@
             If Ozow still shows pending or cannot confirm the outcome, leave
             this attempt open. A missing request ID, an empty search result,
             or a customer closing checkout is not confirmation.
+          </p>
+        <% } %>
+
+                <% if (isStitch) { %>
+          <p>
+            Stitch payment link ID:
+            <span class="text-break">
+              <%= attempt.provider_request_id || "Not saved" %>
+            </span>
+          </p>
+
+          <label
+            for="stitch-outcome-<%= attempt.id %>"
+            class="form-label"
+          >
+            What did Stitch confirm for this merchant reference?
+          </label>
+
+          <select
+            id="stitch-outcome-<%= attempt.id %>"
+            name="stitchFinalOutcome"
+            class="form-select mb-2"
+            aria-describedby="stitch-help-<%= attempt.id %>"
+            required
+          >
+            <option value="">Choose the outcome Stitch confirmed</option>
+            <option value="confirmed_terminal_unpaid">
+              The request ended unpaid and can no longer collect payment.
+            </option>
+
+            <% if (
+              attempt.status === "created" &&
+              !attempt.provider_request_id
+            ) { %>
+              <option value="confirmed_never_created">
+                Stitch confirmed no payment request was created for this reference.
+              </option>
+            <% } %>
+          </select>
+
+          <p
+            id="stitch-help-<%= attempt.id %>"
+            class="text-muted-custom mb-3"
+          >
+            Leave this attempt open if payment is pending or uncertain.
+            An elapsed expiry time, a missing link ID, an empty search
+            result, or the customer closing checkout is not confirmation.
+            Record Stitch's evidence or support ticket below.
           </p>
         <% } %>
 

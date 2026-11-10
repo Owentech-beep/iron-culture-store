@@ -52,13 +52,18 @@ async function checkCounts(ids, payments, reservations) {
 }
 
 function checkRace(results, expectedMessage) {
+  assert.equal(results.length, 3);
+
   const successes = results.filter((r) => r.status === "fulfilled");
   const failures = results.filter((r) => r.status === "rejected");
 
   assert.equal(successes.length, 1, "Exactly one request must succeed.");
-  assert.equal(failures.length, 1, "Exactly one request must be rejected.");
-  assert.equal(failures[0].reason.status, 409);
-  assert.match(failures[0].reason.message, expectedMessage);
+  assert.equal(failures.length, 2, "Exactly two requests must be rejected.");
+
+  for (const failure of failures) {
+    assert.equal(failure.reason.status, 409);
+    assert.match(failure.reason.message, expectedMessage);
+  }
 }
 
 try {
@@ -101,6 +106,13 @@ try {
     OZOW_SITE_CODE: "TEST-SITE",
     OZOW_PUBLIC_BASE_URL: "https://example.com",
     EMAIL_SENDING_ENABLED: "false",
+
+    STITCH_CHECKOUT_ENABLED: "true",
+    STITCH_MODE: "test",
+    STITCH_CLIENT_ID: "test-disposable-client",
+    STITCH_CLIENT_SECRET: "disposable-test-secret",
+    STITCH_WEBHOOK_SECRET: "whsec_dGVzdC1zZWNyZXQ=",
+    STITCH_PUBLIC_BASE_URL: "https://example.com",
   });
 
   // Use an existing account only as an order owner.
@@ -259,39 +271,44 @@ try {
     client.release();
   }
 
-
   const orderId = orderIds[2];
   const variantId = variantIds[1];
 
-  // Both providers compete for the same order.
-  // Wait for BOTH calls before asserting or cleaning up.
+  // All three providers compete for the same order.
+  // Wait for every call before asserting or cleaning up.
   const results = await Promise.allSettled([
     createPaymentAttempt(orderId, userId, "payfast"),
     createPaymentAttempt(orderId, userId, "ozow"),
+    createPaymentAttempt(orderId, userId, "stitch"),
   ]);
 
   checkRace(results, /already has a payment attempt/i);
 
-  const winner = results.find(
-    (result) => result.status === "fulfilled",
-  ).value;
+  const winner = results.find((result) => result.status === "fulfilled").value;
 
   assert.ok(
-    ["payfast_sandbox", "ozow_staging"].includes(winner.provider),
+    ["payfast_sandbox", "ozow_staging", "stitch_test"].includes(
+      winner.provider,
+    ),
   );
 
   await checkCounts([orderId], 1, 1);
   await checkInventory(variantId, 3, 1);
 
-  console.log("PASS: simultaneous PayFast and Ozow submissions create one attempt.");
-  console.log("PASS: stock is reserved once across both providers.");
+  console.log(
+    "PASS: simultaneous PayFast, Ozow and Stitch submissions create one attempt.",
+  );
+  console.log("PASS: stock is reserved once across all three providers.");
 
   async function snapshot() {
     const queries = [
       ["SELECT * FROM payments WHERE order_id = $1 ORDER BY id", [orderId]],
       ["SELECT * FROM orders WHERE id = $1", [orderId]],
       ["SELECT * FROM inventory WHERE variant_id = $1", [variantId]],
-      ["SELECT * FROM stock_reservations WHERE payment_id = $1 ORDER BY id", [winner.paymentId]],
+      [
+        "SELECT * FROM stock_reservations WHERE payment_id = $1 ORDER BY id",
+        [winner.paymentId],
+      ],
       ["SELECT * FROM email_outbox WHERE order_id = $1 ORDER BY id", [orderId]],
     ];
 
@@ -304,7 +321,7 @@ try {
 
   const before = await snapshot();
 
-  for (const provider of ["payfast", "ozow"]) {
+  for (const provider of ["payfast", "ozow", "stitch"]) {
     await assert.rejects(
       () => createPaymentAttempt(orderId, userId, provider),
       (error) =>
@@ -315,7 +332,7 @@ try {
     assert.deepEqual(await snapshot(), before);
   }
 
-  console.log("PASS: neither provider can start another unresolved payment.");
+  console.log("PASS: all three providers reject another unresolved payment.");
 
   const [payments, orders, inventory, reservations, emails] = before;
 
@@ -336,7 +353,9 @@ try {
   assert.equal(reservations[0].quantity, 1);
   assert.equal(emails.length, 0);
 
-  console.log("PASS: order stays unpaid; physical stock is unchanged; no email queued.");
+  console.log(
+    "PASS: order stays unpaid; physical stock is unchanged; no email queued.",
+  );
   console.log("No provider requests were sent.");
 } catch (error) {
   console.error("TEST FAILED:", error.message);

@@ -10,6 +10,7 @@ const schema = `test_live_recovery_${randomUUID().replaceAll("-", "")}`;
 const originalNodeEnv = process.env.NODE_ENV;
 const originalPayfastMode = process.env.PAYFAST_MODE;
 const originalOzowMode = process.env.OZOW_MODE;
+const originalStitchMode = process.env.STITCH_MODE;
 
 let testPool;
 let schemaCreated = false;
@@ -353,7 +354,7 @@ try {
   await expectOzowBlocked(
     "Ozow request with a saved ID cannot be recorded as never created",
     { ozowFinalOutcome: "confirmed_never_created" },
-    /evidence of an Ozow request/i,
+    /evidence of an? Ozow request/i,
   );
 
   const verifiedOzowReview = {
@@ -414,6 +415,172 @@ try {
   console.log(
     "PASS: order remains unpaid and one Ozow audit entry is recorded.",
   );
+  // Stitch recovery must work independently of the other live providers.
+  process.env.PAYFAST_MODE = "sandbox";
+  process.env.OZOW_MODE = "staging";
+  process.env.STITCH_MODE = "live";
+
+  async function makeStitchFixture() {
+    await testPool.query(
+      `UPDATE payments
+       SET provider = 'stitch_live',
+           status = 'pending',
+           provider_request_id = $1,
+           provider_checkout_url = $2
+       WHERE id = 1`,
+      ["Stitch_Test-Link_123", "https://example.invalid/stitch/test-only"],
+    );
+  }
+
+  const stitchReview = {
+    ...request,
+    stitchFinalOutcome: "confirmed_terminal_unpaid",
+    note: "Disposable test: Stitch confirmed final unpaid outcome.",
+  };
+
+  async function expectStitchBlocked(label, setup, overrides = {}) {
+    await expectBlocked(
+      label,
+      async () => {
+        await makeStitchFixture();
+        if (setup) await setup();
+      },
+      { ...stitchReview, ...overrides },
+    );
+  }
+
+  await expectStitchBlocked("Stitch missing review confirmation", null, {
+    confirmChecked: false,
+  });
+
+  await expectStitchBlocked("Stitch missing final outcome", null, {
+    stitchFinalOutcome: undefined,
+  });
+
+  await expectStitchBlocked("Stitch rejects an Ozow-only confirmation", null, {
+    stitchFinalOutcome: undefined,
+    ozowFinalOutcome: "confirmed_terminal_unpaid",
+  });
+
+  await expectStitchBlocked("Stitch rejects an unknown outcome", null, {
+    stitchFinalOutcome: "expired",
+  });
+
+  await expectStitchBlocked("Stitch saved link cannot be never created", null, {
+    stitchFinalOutcome: "confirmed_never_created",
+  });
+
+  await expectStitchBlocked("Stitch wrong reference", null, {
+    reference: randomUUID(),
+  });
+
+  await expectStitchBlocked("Stitch non-admin reviewer", () =>
+    testPool.query("UPDATE users SET role = 'customer' WHERE id = 1"),
+  );
+
+  await expectStitchBlocked("Stitch recent attempt", () =>
+    testPool.query("UPDATE payments SET created_at = NOW() WHERE id = 1"),
+  );
+
+  await expectStitchBlocked("Stitch demo order", () =>
+    testPool.query("UPDATE orders SET is_demo = TRUE WHERE id = 1"),
+  );
+
+  await expectStitchBlocked("Stitch test provider", () =>
+    testPool.query("UPDATE payments SET provider = 'stitch_test' WHERE id = 1"),
+  );
+
+  await expectStitchBlocked("Stitch recorded transaction", () =>
+    testPool.query(
+      "UPDATE payments SET provider_payment_id = 'RecordedPayment' WHERE id = 1",
+    ),
+  );
+
+  await expectStitchBlocked("Stitch paid order", () =>
+    testPool.query(
+      "UPDATE orders SET status = 'paid', payment_status = 'paid' WHERE id = 1",
+    ),
+  );
+
+  await expectStitchBlocked("Stitch consumed reservation", () =>
+    testPool.query(
+      "UPDATE stock_reservations SET status = 'consumed' WHERE id = 1",
+    ),
+  );
+
+  await expectStitchBlocked("Stitch open reconciliation alert", () =>
+    testPool.query(
+      "INSERT INTO payment_reconciliation_alerts VALUES (1, 1, 'open')",
+    ),
+  );
+
+  await expectStitchBlocked("Stitch partial release rolls back", () =>
+    testPool.query(
+      "UPDATE inventory SET reserved_quantity = 0 WHERE variant_id = 2",
+    ),
+  );
+
+  async function assertStitchClosure(review) {
+    const before = await snapshot();
+
+    const results = await Promise.allSettled([
+      closeVerifiedUnpaidLiveAttempt(review, testPool),
+      closeVerifiedUnpaidLiveAttempt(review, testPool),
+    ]);
+
+    for (const result of results) {
+      if (result.status === "rejected") throw result.reason;
+    }
+
+    const after = await snapshot();
+
+    assert.equal(after.payments[0].status, "cancelled");
+    assert.equal(after.payments[0].provider, "stitch_live");
+    assert.equal(
+      after.payments[0].provider_request_id,
+      before.payments[0].provider_request_id,
+    );
+    assert.deepEqual(after.orders, before.orders);
+    assert.deepEqual(balances(after.inventory), balances(state.inventory));
+
+    assert.equal(after.stock_reservations.length, 2);
+    for (const reservation of after.stock_reservations) {
+      assert.equal(reservation.status, "released");
+      assert.ok(reservation.resolved_at);
+    }
+
+    assert.equal(after.order_status_history.length, 1);
+    const audit = after.order_status_history[0];
+    assert.equal(audit.changed_by, review.adminId);
+    assert.ok(audit.note.includes(reference));
+    assert.ok(audit.note.includes("stitch_live"));
+    assert.ok(audit.note.includes(review.note));
+
+    await closeVerifiedUnpaidLiveAttempt(review, testPool);
+    assert.deepEqual(await snapshot(), after);
+  }
+
+  await resetFixture();
+  await makeStitchFixture();
+  await assertStitchClosure(stitchReview);
+  console.log(
+    "PASS: verified Stitch unpaid closure releases stock once and preserves the unpaid order.",
+  );
+
+  await resetFixture();
+  await testPool.query(
+    "UPDATE payments SET provider = 'stitch_live' WHERE id = 1",
+  );
+
+  await assertStitchClosure({
+    ...stitchReview,
+    stitchFinalOutcome: "confirmed_never_created",
+    note: "Disposable test: Stitch confirmed no request was created.",
+  });
+
+  console.log(
+    "PASS: verified never-created Stitch attempt closes once with one audit entry.",
+  );
   console.log("No emails or payment requests were sent.");
 } catch (error) {
   console.error("TEST FAILED:", error);
@@ -422,6 +589,7 @@ try {
   restoreEnv("NODE_ENV", originalNodeEnv);
   restoreEnv("PAYFAST_MODE", originalPayfastMode);
   restoreEnv("OZOW_MODE", originalOzowMode);
+  restoreEnv("STITCH_MODE", originalStitchMode);
 
   if (testPool) await testPool.end();
 
