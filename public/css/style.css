@@ -2688,26 +2688,33 @@ body:has(.whatsapp-contact) .site-footer {
 }
 /* Store delivery and payment banner */
 .delivery-banner {
+  overflow: hidden;
   background: #111;
   color: #fff;
   border-bottom: 1px solid #333;
 }
 
-.delivery-banner-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.delivery-banner-track {
+  display: flex;
+  width: max-content;
+  animation: delivery-banner-scroll 28s linear infinite;
+}
+
+.delivery-banner-group {
+  display: flex;
+  flex: 0 0 auto;
+  width: max(100vw, 1050px);
 }
 
 .delivery-banner-item {
   display: flex;
+  flex: 1 1 0;
+  min-width: 0;
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
-  padding: 0.9rem 1rem;
-}
-
-.delivery-banner-item + .delivery-banner-item {
-  border-left: 1px solid #444;
+  padding: 0.9rem 1.5rem;
+  border-right: 1px solid #444;
 }
 
 .delivery-banner-item svg {
@@ -2739,29 +2746,51 @@ body:has(.whatsapp-contact) .site-footer {
   color: #ddd;
 }
 
+@keyframes delivery-banner-scroll {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
 @media (max-width: 575.98px) {
-  .delivery-banner > .container {
-    padding-inline: 0;
+  .delivery-banner-group {
+    width: 960px;
   }
 
   .delivery-banner-item {
-    flex-direction: column;
-    gap: 0.35rem;
-    padding: 0.65rem 0.35rem;
-    text-align: center;
+    gap: 0.6rem;
+    padding: 0.75rem 1rem;
   }
 
   .delivery-banner-item svg {
-    width: 22px;
-    height: 22px;
+    width: 25px;
+    height: 25px;
+  }
+}
+
+/* Show every message without movement when reduced motion is requested. */
+@media (prefers-reduced-motion: reduce) {
+  .delivery-banner-track {
+    width: 100%;
+    animation: none;
+    transform: none;
   }
 
-  .delivery-banner-item strong {
-    font-size: 0.62rem;
+  .delivery-banner-group {
+    width: 100%;
+    flex-wrap: wrap;
   }
 
-  .delivery-banner-item span {
-    font-size: 0.62rem;
+  .delivery-banner-group[aria-hidden="true"] {
+    display: none;
+  }
+
+  .delivery-banner-item {
+    flex: 1 1 280px;
   }
 }
 
