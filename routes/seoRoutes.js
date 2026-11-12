@@ -40,11 +40,14 @@ router.get("/sitemap.xml", async (req, res) => {
     const urls = [
       `${siteOrigin}/`,
       `${siteOrigin}/shop`,
+      `${siteOrigin}/about`,
       ...rows.map(
         (product) =>
           `${siteOrigin}/product/${encodeURIComponent(product.slug)}`,
       ),
     ];
+
+
 
     const entries = urls
       .map((url) => `  <url><loc>${escapeXml(url)}</loc></url>`)

@@ -46,7 +46,7 @@ export async function listAdminProducts(
 
 export async function getProductOptions() {
   const [categories, brands] = await Promise.all([
-    pool.query("SELECT id, name FROM categories ORDER BY name"),
+    pool.query("SELECT id, name FROM categories ORDER BY id"),
     pool.query("SELECT id, name FROM brands ORDER BY name"),
   ]);
 
@@ -226,7 +226,7 @@ export async function addAdminVariant(
   try {
     await client.query("BEGIN");
 
-        const product = await client.query(
+    const product = await client.query(
       `SELECT id
        FROM products
        WHERE id = $1 AND retired_at IS NULL

@@ -21,12 +21,13 @@ function getTable(kind) {
 
 export async function listCatalogueEntries(kind) {
   const table = getTable(kind);
+  const orderBy = kind === "categories" ? "id ASC" : "name ASC, id ASC";
 
   const { rows } = await pool.query(
     `SELECT id, name, slug
      ${kind === "brands" ? ", is_demo, logo_url" : ""}
      FROM ${table}
-     ORDER BY name`
+     ORDER BY ${orderBy}`,
   );
 
   return rows;

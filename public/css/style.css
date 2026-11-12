@@ -2808,3 +2808,67 @@ body:has(.whatsapp-contact) .site-footer {
     height: 300px;
   }
 }
+/* About Iron Culture */
+.about-page {
+  background: #0d0d0d;
+  color: #f5f5f5;
+}
+
+.about-page p:not(.eyebrow) {
+  line-height: 1.8;
+}
+
+.about-lead {
+  max-width: 65ch;
+  font-size: clamp(1.05rem, 1.6vw, 1.25rem);
+  color: #e0e0e0;
+}
+
+.about-emblem {
+  padding: clamp(1.5rem, 4vw, 3rem);
+  text-align: center;
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 16px;
+}
+
+.about-emblem img {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  margin: 0 auto;
+  object-fit: contain;
+}
+
+.about-emblem p {
+  margin: 1.5rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.about-story,
+.about-value {
+  padding: clamp(1.5rem, 3vw, 2.5rem);
+  background: #151515;
+  border: 1px solid #333;
+  border-radius: 12px;
+}
+
+.about-story > p:not(.eyebrow) {
+  max-width: 80ch;
+  color: #d0d0d0;
+}
+
+.about-value p {
+  color: #d0d0d0;
+}
+
+.about-value-number {
+  display: block;
+  margin-bottom: 1rem;
+  color: #aaa;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
